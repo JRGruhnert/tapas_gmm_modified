@@ -52,7 +52,7 @@ class Config:
 
 
 def main(config: Config) -> None:
-    env = Calvin(config=config.env_config, eval=False, vis=False)
+    env = Calvin(config=config.env_config, eval=False, vis=False, real_time=False)
     keyboard_obs = KeyboardObserver()
     policy = ManualCalvinPolicy(config, env, keyboard_obs)
     states = convert_to_states(StateSpace.ALL)
@@ -93,7 +93,7 @@ def main(config: Config) -> None:
                     ebar.set_description("Running episode")
                     start_time = time.time()
 
-                    print(obs.ee_pose)
+                    # print(obs.ee_pose)
                     prediction, policy_done, policy_success = policy.predict(
                         obs
                     )  # Action is relative

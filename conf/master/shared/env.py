@@ -13,6 +13,7 @@ env1 = MasterEnvConfig(
     evaluator=evaluator,
     storage=storage,
     sampler=sampler,
+    real_time=False,
 )
 
 env2 = MasterEnvConfig(
@@ -24,6 +25,7 @@ env2 = MasterEnvConfig(
     evaluator=evaluator,
     storage=storage,
     sampler=sampler,
+    real_time=False,
 )
 
 env3 = MasterEnvConfig(
@@ -35,6 +37,7 @@ env3 = MasterEnvConfig(
     evaluator=evaluator,
     storage=storage,
     sampler=sampler,
+    real_time=False,
 )
 
 test_env = MasterEnvConfig(
@@ -46,4 +49,5 @@ test_env = MasterEnvConfig(
     evaluator=evaluator,
     storage=storage,
     sampler=sampler,
+    real_time=False,
 )

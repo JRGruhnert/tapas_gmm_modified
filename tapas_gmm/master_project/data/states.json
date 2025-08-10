@@ -1,0 +1,402 @@
+{
+    "EE_Transform": {
+        "identifier": "ee_euler",
+        "type": "Transform",
+        "space": "SMALL",
+        "success": "PRECISE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Slide_Transform": {
+        "identifier": "base__slide_euler",
+        "type": "Transform",
+        "space": "SMALL",
+        "success": "PRECISE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Drawer_Transform": {
+        "identifier": "base__drawer_euler",
+        "type": "Transform",
+        "space": "SMALL",
+        "success": "PRECISE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Button_Transform": {
+        "identifier": "base__button_euler",
+        "type": "Transform",
+        "space": "SMALL",
+        "success": "PRECISE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Switch_Transform": {
+        "identifier": "base__switch_euler",
+        "type": "Transform",
+        "space": "UNUSED",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Lightbulb_Transform": {
+        "identifier": "lightbulb_euler",
+        "type": "Transform",
+        "space": "UNUSED",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Led_Transform": {
+        "identifier": "led_euler",
+        "type": "Transform",
+        "space": "SMALL",
+        "success": "PRECISE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Red_Transform": {
+        "identifier": "block_red_euler",
+        "type": "Transform",
+        "space": "ALL",
+        "success": "AREA",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Blue_Transform": {
+        "identifier": "block_blue_euler",
+        "type": "Transform",
+        "space": "ALL",
+        "success": "AREA",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Pink_Transform": {
+        "identifier": "block_pink_euler",
+        "type": "Transform",
+        "space": "ALL",
+        "success": "AREA",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "EE_Quat": {
+        "identifier": "ee_quat",
+        "type": "Quaternion",
+        "space": "SMALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Slide_Quat": {
+        "identifier": "base__slide_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Drawer_Quat": {
+        "identifier": "base__drawer_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Button_Quat": {
+        "identifier": "base__button_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Switch_Quat": {
+        "identifier": "base__switch_quat",
+        "type": "Quaternion",
+        "space": "UNUSED",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Lightbulb_Quat": {
+        "identifier": "lightbulb_quat",
+        "type": "Quaternion",
+        "space": "UNUSED",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Led_Quat": {
+        "identifier": "led_quat",
+        "type": "Quaternion",
+        "space": "SMALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Red_Quat": {
+        "identifier": "block_red_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Blue_Quat": {
+        "identifier": "block_blue_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "Pink_Quat": {
+        "identifier": "block_pink_quat",
+        "type": "Quaternion",
+        "space": "ALL",
+        "success": "IGNORE",
+        "min": [
+            -1.0,
+            -1.0,
+            -1.0
+        ],
+        "max": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "EE_State": {
+        "identifier": "ee_state",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "SMALL",
+        "success": "PRECISE"
+    },
+    "Slide_State": {
+        "identifier": "base__slide",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 0.28,
+        "space": "SMALL",
+        "success": "PRECISE"
+    },
+    "Drawer_State": {
+        "identifier": "base__drawer",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 0.22,
+        "space": "SMALL",
+        "success": "PRECISE"
+    },
+    "Button_State": {
+        "identifier": "base__button",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "SMALL",
+        "success": "PRECISE"
+    },
+    "Switch_State": {
+        "identifier": "base__switch",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 0.088,
+        "space": "UNUSED",
+        "success": "IGNORE"
+    },
+    "Lightbulb_State": {
+        "identifier": "lightbulb",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "UNUSED",
+        "success": "IGNORE"
+    },
+    "Led_State": {
+        "identifier": "led",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "SMALL",
+        "success": "PRECISE"
+    },
+    "Red_State": {
+        "identifier": "block_red",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "UNUSED",
+        "success": "IGNORE"
+    },
+    "Blue_State": {
+        "identifier": "block_blue",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "UNUSED",
+        "success": "IGNORE"
+    },
+    "Pink_State": {
+        "identifier": "block_pink",
+        "type": "Scalar",
+        "min": 0.0,
+        "max": 1.0,
+        "space": "UNUSED",
+        "success": "IGNORE"
+    }
+}

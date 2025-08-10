@@ -35,6 +35,7 @@ class MasterEnvConfig:
     evaluator: EvaluatorConfig
     storage: StorageConfig
     sampler: SamplerConfig
+    real_time: bool
 
 
 class MasterEnv:
@@ -52,7 +53,9 @@ class MasterEnv:
         else:
             self.config.evaluator.allowed_steps = 20  # Max 16 Steps needed
 
-        self.env = Calvin(eval=config.eval_mode, vis=config.pybullet_vis)
+        self.env = Calvin(
+            eval=config.eval_mode, vis=config.pybullet_vis, real_time=config.real_time
+        )
         self.evaluator = Evaluator(config.evaluator, self.tasks, self.states)
         self.sampler = Sampler(config.sampler, self.states)
         self.policy_storage = Storage(config.storage, self.tasks, self.states)

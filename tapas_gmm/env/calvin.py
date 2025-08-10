@@ -44,7 +44,7 @@ class CalvinConfig(BaseEnvironmentConfig):
 
 
 class Calvin(BaseEnvironment):
-    def __init__(self, config=None, eval=False, vis=True, **kwargs):
+    def __init__(self, config=None, eval=False, vis=True, real_time=False):
         if config is None:
             config = CalvinConfig(
                 task="Undefined",
@@ -63,7 +63,7 @@ class Calvin(BaseEnvironment):
         self.cameras = config.cameras
 
         self.env: CalvinEnvironment = get_env_from_cfg(
-            eval, vis
+            eval, vis, real_time
         )  # Give the config to the env so that i can connect both config systems and remove the pain
         if self.env is None:
             raise RuntimeError("Could not create environment.")
@@ -75,7 +75,9 @@ class Calvin(BaseEnvironment):
     def reset(
         self, scene_obs=None, static=True, settle_time=20
     ) -> tuple[CalvinObservation, float, bool, dict]:
-        return self.env.reset(scene_obs=scene_obs, static=static, settle_time= settle_time)
+        return self.env.reset(
+            scene_obs=scene_obs, static=static, settle_time=settle_time
+        )
 
     def reset_to_demo(self, path: str) -> CalvinObservation:
         raise NotImplementedError("Not implemented yet")
