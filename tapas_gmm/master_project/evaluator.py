@@ -114,7 +114,7 @@ class StateEvaluator:
         goal_reached = True
         for state in self.states:
             state_type = state.type
-            if state.success == StateSuccess.AREA:
+            if state.success == StateSuccess.Area:
                 if state_type is StateType.Quat or state_type is StateType.Scalar:
                     raise ValueError(
                         "Quaternion and Scalar States don't support area based evaluation."
@@ -126,7 +126,7 @@ class StateEvaluator:
                 if goal_surface != next_surface:
                     goal_reached = False
                     break
-            elif state.success == StateSuccess.PRECISE:
+            elif state.success == StateSuccess.Precise:
                 if (
                     state.distance(
                         obs.states[state.ident], self.goal.states[state.ident]
@@ -135,7 +135,7 @@ class StateEvaluator:
                 ):
                     goal_reached = False
                     break
-            elif state.success == StateSuccess.IGNORE:
+            elif state.success == StateSuccess.Ignore:
                 pass  # Probably only Quaternions cause of Model recording
                 # State is not evaluated
             else:

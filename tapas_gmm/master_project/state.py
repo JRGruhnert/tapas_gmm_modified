@@ -1,65 +1,59 @@
 from enum import Enum
 import torch
+import json
+from pathlib import Path
+from typing import List
 
 
 class StateSpace(Enum):
-    SMALL = 0
-    ALL = 1
-    UNUSED = 2
+    Minimal = "Minimal"
+    All = "All"
+    Unused = "Unused"
 
 
 class StateType(Enum):
-    Euler = 0
-    Quat = 1
-    Scalar = 2
+    Euler = "Euler"
+    Quat = "Quat"
+    Scalar = "Scalar"
 
 
 class StateSuccess(Enum):
-    AREA = 0  # Has to be in area
-    PRECISE = 1  # Has to be precise (with threshold)
-    IGNORE = 2  # Is not used in Success calculation
-    # (mostly quaternions cause i am not able to make models that precise)
+    Area = "Area"  # Has to be in area
+    Precise = "Precise"  # Has to be precise (with threshold)
+    Ignore = "Ignore"  # Is not used in Success calculation
 
 
 class StateIdent(Enum):
-    @classmethod
-    def by_name(cls, name: str):
-        """Get enum member by its actual enum member name"""
-        try:
-            return cls[name]
-        except KeyError:
-            raise ValueError(f"No StateIdent with name '{name}'")
-
-    ee_euler = 0
-    ee_quat = 1
-    ee_state = 2
-    base__slide_euler = 3
-    base__slide_quat = 4
-    base__slide = 5
-    base__drawer_euler = 6
-    base__drawer_quat = 7
-    base__drawer = 8
-    base__button_euler = 9
-    base__button_quat = 10
-    base__button = 11
-    base__led_euler = 12
-    base__led_quat = 13
-    base__led = 14
-    block_red_euler = 15
-    block_red_quat = 16
-    block_red = 17
-    block_blue_euler = 18
-    block_blue_quat = 19
-    block_blue = 20
-    block_pink_euler = 21
-    block_pink_quat = 22
-    block_pink = 23
-    base__switch_euler = 24  # UNUSED CAUSE NOT ABLE TO RECORD
-    base__switch_quat = 25  # UNUSED CAUSE NOT ABLE TO RECORD
-    base__switch = 26  # UNUSED CAUSE NOT ABLE TO RECORD
-    base__lightbulb_euler = 27  # UNUSED CAUSE NOT ABLE TO RECORD
-    base__lightbulb_quat = 28  # UNUSED CAUSE NOT ABLE TO RECORD
-    base__lightbulb = 29  # UNUSED CAUSE NOT ABLE TO RECORD
+    EE_Euler = "ee_euler"
+    EE_Quat = "ee_quat"
+    EE_State = "ee_state"
+    Slide_Euler = "base__slide_euler"
+    Slide_Quat = "base__slide_quat"
+    Slide_State = "base__slide"
+    Drawer_Euler = "base__drawer_euler"
+    Drawer_Quat = "base__drawer_quat"
+    Drawer_State = "base__drawer"
+    Button_Euler = "base__button_euler"
+    Button_Quat = "base__button_quat"
+    Button_State = "base__button"
+    Led_Euler = "led_euler"
+    Led_Quat = "led_quat"
+    Led_State = "led"
+    Block_Red_Euler = "block_red_euler"
+    Block_Red_Quat = "block_red_quat"
+    Block_Red_State = "block_red"
+    Block_Blue_Euler = "block_blue_euler"
+    Block_Blue_Quat = "block_blue_quat"
+    Block_Blue_State = "block_blue"
+    Block_Pink_Euler = "block_pink_euler"
+    Block_Pink_Quat = "block_pink_quat"
+    Block_Pink_State = "block_pink"
+    Switch_Euler = "base__switch_euler"  # UNUSED CAUSE NOT ABLE TO RECORD
+    Switch_Quat = "base__switch_quat"  # UNUSED CAUSE NOT ABLE TO RECORD
+    Switch_State = "base__switch"  # UNUSED CAUSE NOT ABLE TO RECORD
+    Lightbulb_Euler = "lightbulb_euler"  # UNUSED CAUSE NOT ABLE TO RECORD
+    Lightbulb_Quat = "lightbulb_quat"  # UNUSED CAUSE NOT ABLE TO RECORD
+    Lightbulb_State = "lightbulb"  # UNUSED CAUSE NOT ABLE TO RECORD
 
 
 class State:
@@ -78,16 +72,70 @@ class State:
         self._upper_bound = upper_bound
 
     @classmethod
-    def from_json(cls, json_data: dict) -> "State":
-        raise NotImplementedError(
-            "This method should be implemented in subclasses to handle JSON deserialization."
+    def from_json(cls, ident_value: str, json_data: dict) -> "State":
+        """Create a State instance from JSON data"""
+        if (
+            "type" not in json_data
+            or "space" not in json_data
+            or "success" not in json_data
+            or "lower_bound" not in json_data
+            or "upper_bound" not in json_data
+        ):
+            raise ValueError(f"Invalid JSON data for State {ident_value}")
+        if not isinstance(json_data["lower_bound"], list):
+            raise ValueError(f"Invalid JSON data for State {ident_value}")
+        if not isinstance(json_data["upper_bound"], list):
+            raise ValueError(f"Invalid JSON data for State {ident_value}")
+        return cls(
+            ident=StateIdent(ident_value),
+            type=StateType(json_data["type"]),
+            success=StateSuccess(json_data["success"]),
+            lower_bound=torch.tensor(json_data["lower_bound"], dtype=torch.float32),
+            upper_bound=torch.tensor(json_data["upper_bound"], dtype=torch.float32),
         )
 
     @classmethod
-    def convert_to_states(state_space: StateSpace) -> list["State"]:
-        raise NotImplementedError(
-            "This method should be implemented in subclasses to handle state conversion."
-        )
+    def from_json_list(cls, state_space: StateSpace) -> List["State"]:
+        """Convert a StateSpace to a list of State objects by reading from states.json"""
+        # Load the states.json file
+        states_json_path = Path(__file__).parent / "data" / "states.json"
+
+        if not states_json_path.exists():
+            raise FileNotFoundError(f"States JSON file not found at {states_json_path}")
+
+        with open(states_json_path, "r") as f:
+            states_data = json.load(f)
+
+        # Filter states based on the requested state space
+        filtered_states = []
+
+        for ident, state_data in states_data.items():
+            # Check if this state belongs to the requested space
+            state_space_str = state_data.get("space", "Unused")
+
+            # Apply filtering logic based on StateSpace hierarchy:
+            # SMALL (0) includes only SMALL states
+            # ALL (1) includes SMALL + ALL states
+            # UNUSED (2) includes only UNUSED states
+            include_state = False
+
+            if state_space == StateSpace.Minimal and state_space_str == "Minimal":
+                include_state = True
+            elif state_space == StateSpace.All and state_space_str in [
+                "Minimal",
+                "All",
+            ]:
+                include_state = True
+            elif state_space == StateSpace.Unused:
+                raise ValueError(
+                    "Unused space is not supported in convert_to_states method"
+                )
+
+            if include_state:
+                state = cls.from_json(ident, state_data)
+                filtered_states.append(state)
+
+        return filtered_states
 
     @property
     def ident(self) -> StateIdent:

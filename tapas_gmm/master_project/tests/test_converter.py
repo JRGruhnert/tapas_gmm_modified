@@ -33,7 +33,7 @@ def test_converter(
         converter = ScalarConverter(state=state, normalized=normalized)
         assert converter.value(value) == exp_value
         assert converter.distance(value, goal) == exp_dist
-    elif state.value.type in [StateType.Transform, StateType.Quaternion]:
+    elif state.value.type in [StateType.Transform, StateType.Quat]:
         converter = TransformConverter(state=state, normalized=normalized)
         assert converter.value(value) == exp_value
         assert converter.distance(value, goal) == exp_dist

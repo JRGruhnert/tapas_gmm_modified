@@ -1,5 +1,6 @@
 from enum import Enum
 from functools import cached_property
+import json
 import pathlib
 from loguru import logger
 import torch
@@ -18,42 +19,37 @@ from tapas_gmm.policy.models.tpgmm import (
 
 
 class TaskSpace(Enum):
-    SMALL = 0
-    ALL = 1
+    Minimal = "Minimal"
+    All = "All"
+    Unused = "Unused"
 
 
 class TaskIdent(Enum):
-
-    @classmethod
-    def get_enum_by_index(enum_cls, index: int):
-        return list(enum_cls)[index]
-
-    CloseDrawer = 0
-    OpenDrawer = 1
-    BackFromCloseDrawer = 2
-    BackFromOpenDrawer = 3
-    PressButton = 4
-    BackFromPressButton = 5
-    MoveSliderToLeft = 6
-    MoveSliderToRight = 7
-    BackFromMoveSliderToLeft = 8
-    BackFromMoveSliderToRight = 9
-    GrabRedBlockTable = 10
-    GrabPinkBlockTable = 11
-    GrabBlueBlockTable = 12
-    GrabRedBlockDrawer = 13
-    GrabPinkBlockDrawer = 14
-    GrabBlueBlockDrawer = 15
-    PlaceRedBlockTable = 16
-    PlacePinkBlockTable = 17
-    PlaceBlueBlockTable = 18
-    PlaceRedBlockDrawer = 19
-    PlacePinkBlockDrawer = 20
-    PlaceBlueBlockDrawer = 21
+    CloseDrawer = "CloseDrawer"
+    OpenDrawer = "OpenDrawer"
+    BackFromCloseDrawer = "BackFromCloseDrawer"
+    BackFromOpenDrawer = "BackFromOpenDrawer"
+    PressButton = "PressButton"
+    BackFromPressButton = "BackFromPressButton"
+    MoveSliderToLeft = "MoveSliderToLeft"
+    MoveSliderToRight = "MoveSliderToRight"
+    BackFromMoveSliderToLeft = "BackFromMoveSliderToLeft"
+    BackFromMoveSliderToRight = "BackFromMoveSliderToRight"
+    GrabRedBlockTable = "GrabRedBlockTable"
+    GrabPinkBlockTable = "GrabPinkBlockTable"
+    GrabBlueBlockTable = "GrabBlueBlockTable"
+    GrabRedBlockDrawer = "GrabRedBlockDrawer"
+    GrabPinkBlockDrawer = "GrabPinkBlockDrawer"
+    GrabBlueBlockDrawer = "GrabBlueBlockDrawer"
+    PlaceRedBlockTable = "PlaceRedBlockTable"
+    PlacePinkBlockTable = "PlacePinkBlockTable"
+    PlaceBlueBlockTable = "PlaceBlueBlockTable"
+    PlaceRedBlockDrawer = "PlaceRedBlockDrawer"
+    PlacePinkBlockDrawer = "PlacePinkBlockDrawer"
+    PlaceBlueBlockDrawer = "PlaceBlueBlockDrawer"
 
 
 class Task:
-
     def __init__(
         self,
         ident: TaskIdent,
@@ -61,7 +57,7 @@ class Task:
         conditional: bool,
         policy_path: str,
         policy_name: str,
-        preconditions: dict[StateIdent, float],
+        preconditions: dict[StateIdent, torch.Tensor],
         overwrites: list[StateIdent],
     ):
         self._ident: TaskIdent = ident
@@ -69,7 +65,7 @@ class Task:
         self._conditional: bool = conditional
         self._policy_path: str = policy_path
         self._policy_name: str = policy_name
-        self._preconditions: dict[StateIdent, float] = preconditions
+        self._preconditions: dict[StateIdent, torch.Tensor] = preconditions
         self._overwrites: list[StateIdent] = overwrites
         self._policy: GMMPolicy = self._load_policy()
 
@@ -102,16 +98,69 @@ class Task:
         return self._preconditions
 
     @classmethod
-    def convert_to_tasks(task_space: TaskSpace) -> list["Task"]:
-        raise NotImplementedError(
-            "This method should be implemented in subclasses to handle task conversion."
+    def from_json(cls, ident_value: str, json_data: dict) -> "Task":
+        """Create a Task instance from JSON data"""
+        if (
+            "reversed" not in json_data
+            or "conditional" not in json_data
+            or "policy_path" not in json_data
+            or "policy_name" not in json_data
+            or "preconditions" not in json_data
+            or "overwrites" not in json_data
+        ):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not isinstance(json_data["preconditions"], dict):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not isinstance(json_data["overwrites"], list):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not all(isinstance(item, str) for item in json_data["overwrites"]):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        # if json_data.get("preconditions", {})
+        return cls(
+            ident=TaskIdent(ident_value),
+            reversed=json_data.get("reversed", False),
+            conditional=json_data.get("conditional", False),
+            policy_path=json_data.get("policy_path", ""),
+            policy_name=json_data.get("policy_name", ""),
+            preconditions=json_data.get("preconditions", {}),
+            overwrites=json_data.get("overwrites", []),
         )
 
     @classmethod
-    def from_json(cls, json_data: dict) -> "Task":
-        raise NotImplementedError(
-            "This method should be implemented in subclasses to handle JSON deserialization."
-        )
+    def from_json_list(cls, task_space: TaskSpace) -> list["Task"]:
+        """Convert a StateSpace to a list of State objects by reading from tasks.json"""
+        # Load the tasks.json file
+        tasks_json_path = pathlib.Path(__file__).parent / "data" / "tasks.json"
+
+        if not tasks_json_path.exists():
+            raise FileNotFoundError(f"Tasks JSON file not found at {tasks_json_path}")
+
+        with open(tasks_json_path, "r") as f:
+            tasks_data = json.load(f)
+
+        # Filter tasks based on the requested state space
+        filtered_tasks = []
+
+        for ident, task_data in tasks_data.items():
+            # Check if this task belongs to the requested space
+            task_space_str = task_data.get("space", "Unused")
+
+            include_task = False
+
+            if task_space == TaskSpace.Minimal and task_space_str == "Minimal":
+                include_task = True
+            elif task_space == TaskSpace.All and task_space_str in ["Minimal", "All"]:
+                include_task = True
+            elif task_space == TaskSpace.Unused:
+                raise ValueError(
+                    "Unused space is not supported in convert_to_tasks method"
+                )
+
+            if include_task:
+                task = cls.from_json(ident, task_data)
+                filtered_tasks.append(task)
+
+        return filtered_tasks
 
     def _policy_checkpoint_name(self) -> pathlib.Path:
         return (

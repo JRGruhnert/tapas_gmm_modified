@@ -1,0 +1,112 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Tasks Configuration Schema",
+    "description": "Schema for validating robot task definitions",
+    "type": "object",
+    "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+            "type": "object",
+            "description": "A task definition",
+            "properties": {
+                "space": {
+                    "type": "string",
+                    "enum": [
+                        "SMALL",
+                        "ALL",
+                        "UNUSED"
+                    ],
+                    "description": "The space classification of the task"
+                },
+                "reversed": {
+                    "type": "boolean",
+                    "description": "Whether this task is a reversed version of another task"
+                },
+                "conditional": {
+                    "type": "boolean",
+                    "description": "Whether this task has conditional execution logic"
+                },
+                "policy_path": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+                    "description": "Path or identifier for the policy associated with this task"
+                },
+                "preconditions": {
+                    "type": "object",
+                    "description": "Conditions that must be met before executing this task",
+                    "properties": {
+                        "upper_bound": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+                            },
+                            "description": "List of state identifiers that should be at their upper bound"
+                        },
+                        "lower_bound": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+                            },
+                            "description": "List of state identifiers that should be at their lower bound"
+                        }
+                    },
+                    "required": [
+                        "upper_bound",
+                        "lower_bound"
+                    ],
+                    "additionalProperties": false
+                },
+                "overrides": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "description": "Override configurations for specific conditions"
+                    },
+                    "description": "List of override configurations (schema can be extended based on specific override types)"
+                }
+            },
+            "required": [
+                "space",
+                "reversed",
+                "conditional",
+                "policy_path",
+                "preconditions"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": false,
+    "examples": [
+        {
+            "CloseDrawer": {
+                "space": "SMALL",
+                "reversed": false,
+                "conditional": false,
+                "policy_path": "DrawerDoClose",
+                "preconditions": {
+                    "upper_bound": [
+                        "ee_state",
+                        "base__drawer"
+                    ],
+                    "lower_bound": []
+                },
+                "overrides": []
+            },
+            "BackFromCloseDrawer": {
+                "space": "SMALL",
+                "reversed": true,
+                "conditional": false,
+                "policy_path": "DrawerDoClose",
+                "preconditions": {
+                    "upper_bound": [],
+                    "lower_bound": [
+                        "ee_state",
+                        "base__drawer"
+                    ]
+                },
+                "overrides": []
+            }
+        }
+    ]
+}
