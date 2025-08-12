@@ -301,6 +301,7 @@ class Demos:
         self.world2frames = []
         self.world2frames_velocities = []
         self.frames2world = []
+        self.frames2world_unchanged = []  # NOTE: added
         self.frames2world_velocities = []
         self.ee_poses = []
         self.ee_poses_raw = tuple(o.ee_pose for o in trajectories)
@@ -317,6 +318,7 @@ class Demos:
         # plt.show()
 
         frame_quats = []
+        frame_quats_unchanged = []  # NOTE: added
         if add_world_frame:
             frame_quats.append(
                 tuple(identity_quaternions(o[0:1, :, 0].shape) for o in frame_poses)
@@ -331,6 +333,12 @@ class Demos:
 
         frame_quats.append(tuple(o[1:, :, 3:] for o in frame_poses))
         self.frame_quats = tuple(torch.cat(o) for o in zip(*frame_quats))
+        frame_quats_unchanged.append(
+            tuple(o[:, :, 3:] for o in frame_poses)
+        )  # NOTE: added
+        self.frame_quats_unchanged = tuple(
+            torch.cat(o) for o in zip(*frame_quats_unchanged)
+        )  # NOTE: added
 
         self.frame_quats = configurable_rotate_frames(
             self.frame_quats,
@@ -339,6 +347,14 @@ class Demos:
             add_init_ee_pose_as_frame,
             add_world_frame,
         )
+
+        self.frame_quats_unchanged = configurable_rotate_frames(
+            self.frame_quats_unchanged,
+            enforce_z_down,
+            enforce_z_up,
+            add_init_ee_pose_as_frame,
+            add_world_frame,
+        )  # NOTE: added
 
         # Convert the reference frames and EE pose into homogeneous transforms.
         for i in range(self.n_trajs):
@@ -381,6 +397,7 @@ class Demos:
             ).reshape(n_frames, n_steps, 4, 4)
 
             # Pop out the EE pose
+            frame2world_unchanged = frame2world.clone()  # NOTE: added
             ee2world = frame2world[0, :, :, :].clone()
             self.ee_poses.append(ee2world)
 
@@ -420,9 +437,13 @@ class Demos:
             self.world2frames_velocities.append(world2frame_vel)
             self.frames2world_velocities.append(frame2world_vel)
 
+            # Make also a list for frames last value
+            self.frames2world_unchanged.append(frame2world_unchanged)  # NOTE: added
+
         self.world2frames = tuple(self.world2frames)
         self.world2frames_velocities = tuple(self.world2frames_velocities)
         self.frames2world = tuple(self.frames2world)
+        self.frames2world_unchanged = tuple(self.frames2world_unchanged)  # NOTE: added
         self.frames2world_velocities = tuple(self.frames2world_velocities)
         self.ee_poses = tuple(self.ee_poses)
         # ee_poses_vel is the EE pose in world frame, but with zero bias (for velocity
@@ -667,6 +688,53 @@ class Demos:
         #     *shape)
 
     @property
+    def _frames2world_fixed_first(self):
+        """
+        Get frames2world transform for fixed coordinate frames.
+        This is the same as _frames2world_fixed, but without the EE pose.
+        """
+        return torch.stack([f2w[:, 0:1, :, :] for f2w in self.frames2world_unchanged])
+
+    @property
+    def _frames2world_fixed_last(self):
+        """
+        Get frames2world transform for fixed coordinate frames.
+        """
+        return torch.stack([f2w[:, -1:, :, :] for f2w in self.frames2world_unchanged])
+
+    @property
+    def frame_origins_pos(self):
+        """
+        Get the origin of the fixed frames. Ie the frame2world transform.
+        As position.
+        """
+        return self._frames2world_fixed_first[..., 0:3, 3].squeeze(2)
+
+    @property
+    def frame_origins_quats(self):
+        """
+        Get the origin of the fixed frames. Ie the frame2world transform.
+        As quaternion.
+        """
+        return self._frame_quats2world_fixed_first.squeeze(2)
+
+    @property
+    def frame_targets_pos(self):
+        """
+        Get the target position of the fixed frames. Ie the frame2world transform.
+        As position.
+        """
+        return self._frames2world_fixed_last[..., 0:3, 3].squeeze(2)
+
+    @property
+    def frame_targets_quats(self):
+        """
+        Get the target orientation of the fixed frames. Ie the frame2world transform.
+        As quaternion.
+        """
+        return self._frame_quats2world_fixed_last.squeeze(2)
+
+    @property
     def _frame_origins_fixed_wquats(self):
         """
         Get the origin of the fixed frames. Ie the frame2world transform.
@@ -681,6 +749,14 @@ class Demos:
     @property
     def _frame_quats2world_fixed(self):
         return torch.stack([f2w[:, 0:1, :] for f2w in self.frame_quats])
+
+    @property
+    def _frame_quats2world_fixed_first(self):
+        return torch.stack([f2w[:, 0:1, :] for f2w in self.frame_quats_unchanged])
+
+    @property
+    def _frame_quats2world_fixed_last(self):
+        return torch.stack([f2w[:, -1:, :] for f2w in self.frame_quats_unchanged])
 
     @property
     def _frame_quats2world(self):
@@ -2409,12 +2485,20 @@ class PartialFrameViewDemos(Demos):
         return self._get_indexed(self.full_demos.frames2world)
 
     @property
+    def frames2world_unchanged(self):  # NOTE: added
+        return self._get_indexed(self.full_demos.frames2world_unchanged)
+
+    @property
     def frames2world_velocities(self):
         return self._get_indexed(self.full_demos.frames2world_velocities)
 
     @property
     def frame_quats(self):
         return self._get_indexed(self.full_demos.frame_quats)
+
+    @property
+    def frame_quats_unchanged(self):  # NOTE: added
+        return self._get_indexed(self.full_demos.frame_quats_unchanged)
 
     @property
     def _world2frames_fixed(self):
@@ -2596,6 +2680,9 @@ class DemosSegment(Demos):
         self.frame_names = self.full_demos.frame_names
 
         self.world2frames = self._get_indexed(self.full_demos.world2frames, 1)
+        self.frames2world_unchanged = self._get_indexed(
+            self.full_demos.frames2world_unchanged, 1
+        )  # NOTE: added
         self.world2frames_velocities = self._get_indexed(
             self.full_demos.world2frames_velocities, 1
         )
@@ -2604,7 +2691,9 @@ class DemosSegment(Demos):
             self.full_demos.frames2world_velocities, 1
         )
         self.frame_quats = self._get_indexed(self.full_demos.frame_quats, 1)
-
+        self.frame_quats_unchanged = self._get_indexed(
+            self.full_demos.frame_quats_unchanged, 1
+        )  # NOTE: added
         self.ee_poses = self._get_indexed(self.full_demos.ee_poses, 0)
         self.ee_poses_vel = self._get_indexed(self.full_demos.ee_poses_vel, 0)
         self.ee_poses_raw = self._get_indexed(self.full_demos.ee_poses_raw, 0)

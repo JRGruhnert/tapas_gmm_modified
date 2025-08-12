@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch_geometric.data import Batch, HeteroData
 from torch_geometric.nn import global_max_pool, global_mean_pool
 from torch_geometric.nn import GINConv
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.networks.base import GnnBase, PPOType
 from tapas_gmm.utils.select_gpu import device
 from tapas_gmm.master_project.networks.layers.mlp import (
@@ -86,47 +86,36 @@ class Gnn(GnnBase):
 
         self.actor = SimpleMeanMaxPoolNetwork(
             dim_features=self.dim_encoder,
-            dim_state=self.dim_state,
+            dim_state=self.dim_states,
             dim_task=self.dim_tasks,
             ppo_type=PPOType.ACTOR,
         )
         self.critic = SimpleMeanMaxPoolNetwork(
             dim_features=self.dim_encoder,
-            dim_state=self.dim_state,
+            dim_state=self.dim_states,
             dim_task=self.dim_tasks,
             ppo_type=PPOType.CRITIC,
         )
 
     def forward(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch: Batch = self.to_batch(obs, goal)
         logits = self.actor(batch)
         value = self.critic(batch)
         return logits, value
 
-    def to_data(self, obs: Observation, goal: Observation) -> HeteroData:
-        obs_dict = self.cnv.tensor_state_dict_values(obs)
-        goal_dict = self.cnv.tensor_state_dict_values(goal)
-        obs_encoded = [
-            self.encoder_obs[k.value.type.name](v.to(device))
-            for k, v in obs_dict.items()
-        ]
-        goal_encoded = [
-            self.encoder_goal[k.value.type.name](v.to(device))
-            for k, v in goal_dict.items()
-        ]
-        obs_tensor = torch.stack(obs_encoded, dim=0)  # [num_states, feature_size]
-        goal_tensor = torch.stack(goal_encoded, dim=0)  # [num_states, feature_size]
-        task_tensor = self.cnv.tensor_task_distance(obs)
+    def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
+        obs_tensor, goal_tensor = self.encode_states(obs, goal)
+        task_tensor = self.task_state_distances(obs)
 
         data = HeteroData()
         data["goal"].x = goal_tensor
         data["obs"].x = obs_tensor
         data["task"].x = task_tensor
 
-        data[("goal", "goal-obs", "obs")].edge_index = self.cnv.state_state_sparse
-        data[("obs", "obs-task", "task")].edge_index = self.cnv.state_task_sparse
+        data[("goal", "goal-obs", "obs")].edge_index = self.state_state_sparse
+        data[("obs", "obs-task", "task")].edge_index = self.state_task_sparse
         return data.to(device)

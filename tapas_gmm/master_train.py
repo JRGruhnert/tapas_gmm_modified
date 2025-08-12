@@ -2,14 +2,19 @@ from dataclasses import dataclass
 from datetime import datetime
 from omegaconf import OmegaConf, SCMode
 
+from tapas_gmm.master_project.data_loader import DataLoader
+from tapas_gmm.master_project.state import StateSpace
+from tapas_gmm.master_project.task import TaskSpace
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
-from tapas_gmm.master_project.agent import Agent, AgentConfig
+from tapas_gmm.master_project.agent import MasterAgent, AgentConfig
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.utils.argparse import parse_and_build_config
 
 
 @dataclass
 class MasterConfig:
+    state_space: StateSpace
+    task_space: TaskSpace
     tag: str
     nt: NetworkType
     agent: AgentConfig
@@ -19,9 +24,11 @@ class MasterConfig:
 
 def train_agent(config: MasterConfig):
     # Initialize the environment and agent
-    env = MasterEnv(config.env)
-    tasks, states, tps = env.publish()
-    agent = Agent(config.agent, config.nt, config.tag, tasks, states, tps)
+    loader = DataLoader(config.state_space, config.task_space)
+    env = MasterEnv(config.env, loader.states, loader.tasks)
+    agent = MasterAgent(
+        config.agent, config.nt, config.tag, loader.states, loader.tasks
+    )
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
@@ -32,8 +39,8 @@ def train_agent(config: MasterConfig):
         batch_rdy = False
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
-            task_id = agent.act(obs, goal)
-            reward, terminal, obs = env.step(task_id)
+            task = agent.act(obs, goal)
+            reward, terminal, obs = env.step(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
             train_start_time = datetime.now().replace(microsecond=0)

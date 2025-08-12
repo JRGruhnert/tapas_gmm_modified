@@ -1,350 +1,212 @@
 {
   "CloseDrawer": {
-    "path": "DrawerClose",
     "space": "SMALL",
     "reversed": false,
-    "manual_precondition": {
-      "EE_State": "max",
-      "Drawer_State": "max"
+    "conditional": false,
+    "policy_path": "DrawerDoClose",
+    "preconditions": {
+      "upper_bound": ["ee_state", "base__drawer"],
+      "lower_bound": []
     },
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_tp_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0]
+    "overrides": []
   },
-  "SliderLeftMoveTo": {
-    "precondition": {
-      "EE_State": "min",
-      "Slide_State": "max"
-    },
-    "space": "SMALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      -0.24200995, 0.03103676, 0.57855496, 0.72666244, 0.6863869, 0.02884163, -0.00169593
-    ]
-  },
-  "SliderRightMoveTo": {
-    "precondition": {
-      "EE_State": "min",
-      "Slide_State": "min"
-    },
-    "space": "SMALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.0446754, 0.03459689, 0.56971713, 0.73415732, 0.67768943, 0.04181756, -0.00116969
-    ]
-  },
-  "DrawerMoveToClosed": {
-    "precondition": {
-      "EE_State": "min",
-      "Drawer_State": "min"
-    },
-    "space": "SMALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.1799327, -0.20690583, 0.46871324, 0.73168841, 0.68082266, 0.0325737, 0.00717814
-    ]
-  },
-  "DrawerMoveToOpen": {
-    "precondition": {
-      "EE_State": "min",
-      "Drawer_State": "max"
-    },
-    "space": "SMALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.18521255, -0.43961252, 0.43864139, 0.73337219, 0.67915659, 0.02904117, 0.00825612
-    ]
-  },
-  "DrawerDoOpen": {
-    "precondition": {
-      "EE_State": "max",
-      "Drawer_State": "min"
-    },
+  "OpenDrawer": {
     "space": "SMALL",
     "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
-  },
-  "ButtonPress": {
-    "precondition": {
-      "EE_State": "max"
+    "conditional": false,
+    "policy_path": "DrawerDoOpen",
+    "preconditions": {
+      "upper_bound": ["ee_state"],
+      "lower_bound": ["base__drawer"]
     },
-    "space": "SMALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "overrides": []
   },
-  "ButtonPressReversed": {
-    "precondition": {
-      "EE_State": "min"
-    },
+  "BackFromCloseDrawer": {
     "space": "SMALL",
     "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      -0.11145425, -0.12517733, 0.47878784, 0.73138852, 0.68118917, 0.03111799, 0.00915563
-    ]
-  },
-  "SliderLeftDoOpen": {
-    "precondition": {
-      "EE_State": "max",
-      "Slide_State": "min"
+    "conditional": false,
+    "policy_path": "DrawerDoClose",
+    "preconditions": {
+      "upper_bound": [],
+      "lower_bound": ["ee_state", "base__drawer"]
     },
+    "overrides": []
+  },
+  "BackFromOpenDrawer": {
+    "space": "SMALL",
+    "reversed": true,
+    "conditional": false,
+    "policy_path": "DrawerDoOpen",
+    "preconditions": {
+      "upper_bound": ["base__drawer"],
+      "lower_bound": ["ee_state"]
+    },
+    "overrides": []
+  },
+  "PressButton": {
     "space": "SMALL",
     "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
-  },
-  "SliderRightDoOpen": {
-    "precondition": {
-      "EE_State": "max",
-      "Slide_State": "max"
+    "conditional": false,
+    "policy_path": "ButtonPress",
+    "preconditions": {
+      "upper_bound": ["ee_state"],
+      "lower_bound": []
     },
+    "overrides": []
+  },
+  "BackFromPressButton": {
+    "space": "SMALL",
+    "reversed": true,
+    "conditional": false,
+    "policy_path": "ButtonPress",
+    "preconditions": {
+      "upper_bound": [],
+      "lower_bound": ["ee_state"]
+    },
+    "overrides": []
+  },
+  "MoveSliderToLeft": {
     "space": "SMALL",
     "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "conditional": false,
+    "policy_path": "SliderLeftDoOpen",
+    "preconditions": {
+      "upper_bound": ["slide_state"],
+      "lower_bound": ["ee_state"]
+    }
+  },
+  "MoveSliderToRight": {
+    "space": "SMALL",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "SliderRightDoOpen",
+    "preconditions": {
+      "upper_bound": [],
+      "lower_bound": ["ee_state", "slide_state"]
+    }
+  },
+  "BackFromMoveSliderToLeft": {
+    "space": "SMALL",
+    "reversed": true,
+    "conditional": false,
+    "policy_path": "SliderLeftDoOpen",
+    "preconditions": {
+      "upper_bound": [],
+      "lower_bound": ["ee_state", "slide_state"]
+    }
+  },
+  "BackFromMoveSliderToRight": {
+    "space": "SMALL",
+    "reversed": true,
+    "conditional": false,
+    "policy_path": "SliderRightMoveTo",
+    "preconditions": {
+      "upper_bound": ["slide_state"],
+      "lower_bound": ["ee_state"]
+    }
   },
   "BlockTableRed": {
     "precondition": {
-      "EE_State": "max"
+      "EE_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockTablePink": {
     "precondition": {
-      "EE_State": "max"
+      "EE_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockTableBlue": {
     "precondition": {
-      "EE_State": "max"
+      "EE_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockTableRedReversed": {
     "precondition": {
-      "EE_State": "min"
+      "EE_State": 0
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockTablePinkReversed": {
     "precondition": {
-      "EE_State": "min"
+      "EE_State": 0
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockTableBlueReversed": {
     "precondition": {
-      "EE_State": "min"
+      "EE_State": 0
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockDrawerRed": {
     "precondition": {
-      "EE_State": "max",
-      "Drawer_State": "max"
+      "EE_State": 1,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockDrawerPink": {
     "precondition": {
-      "EE_State": "max",
-      "Drawer_State": "max"
+      "EE_State": 1,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockDrawerBlue": {
     "precondition": {
-      "EE_State": "max",
-      "Drawer_State": "max"
+      "EE_State": 1,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockDrawerRedReversed": {
     "precondition": {
-      "EE_State": "min",
-      "Drawer_State": "max"
+      "EE_State": 0,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockDrawerPinkReversed": {
     "precondition": {
-      "EE_State": "min",
-      "Drawer_State": "max"
+      "EE_State": 0,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockDrawerBlueReversed": {
     "precondition": {
-      "EE_State": "min",
-      "Drawer_State": "max"
+      "EE_State": 0,
+      "Drawer_State": 1
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   },
   "BlockMoveTo": {
     "precondition": {
-      "EE_State": "min"
+      "EE_State": 0
     },
     "space": "ALL",
-    "reversed": false,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": false
   },
   "BlockMoveToReversed": {
     "precondition": {
-      "EE_State": "min"
+      "EE_State": 0
     },
     "space": "ALL",
-    "reversed": true,
-    "ee_tp_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ],
-    "obj_start": [-0.00699564, 0.40082628, -0.03604347, 0.0, 0.0, 0.0, 1.0],
-    "ee_hrl_start": [
-      0.02586799, -0.23131344, 0.57128022, 0.73157951, 0.68112164, 0.02806045, 0.00879429
-    ]
+    "reversed": true
   }
 }

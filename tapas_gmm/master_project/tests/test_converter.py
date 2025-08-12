@@ -2,19 +2,12 @@ import numpy as np
 import pytest
 
 from tapas_gmm.master_project.converter import (
-    Converter,
     QuaternionConverter,
     ScalarConverter,
     TransformConverter,
 )
-from tapas_gmm.master_project.definitions import (
-    State,
-    StateSpace,
-    StateType,
-    Task,
-)
-from tapas_gmm.master_project.observation import Observation
-
+from tapas_gmm.master_project.state import StateType
+from tapas_gmm.master_project.state import StateIdent
 
 normalized = True
 
@@ -22,15 +15,15 @@ normalized = True
 @pytest.mark.parametrize(
     "state, value, goal, exp_value, exp_dist",
     [
-        (State.EE_State, 1.0, -1.0, 1.0, 1.0),
-        (State.EE_State, -1.0, -1.0, 0.0, 0.0),
-        (State.EE_State, 1.0, 1.0, 1.0, 0.0),
-        (State.EE_State, -1.0, 1.0, 0.0, 1.0),
-        (State.Slide_State, -1.0, 0.1, 0.0, 0.0),
+        (StateIdent.EE_State, 1.0, -1.0, 1.0, 1.0),
+        (StateIdent.EE_State, -1.0, -1.0, 0.0, 0.0),
+        (StateIdent.EE_State, 1.0, 1.0, 1.0, 0.0),
+        (StateIdent.EE_State, -1.0, 1.0, 0.0, 1.0),
+        (StateIdent.Slide_State, -1.0, 0.1, 0.0, 0.0),
     ],
 )
 def test_converter(
-    state: State,
+    state: StateIdent,
     value: float | np.ndarray,
     goal: float | np.ndarray,
     exp_value: float | np.ndarray,

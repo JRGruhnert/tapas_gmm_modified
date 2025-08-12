@@ -2,20 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.data import Batch, HeteroData
-from torch_geometric.nn import global_max_pool, global_mean_pool
-from torch_geometric.nn import GATv2Conv, LayerNorm, GINConv, GINEConv
-from tapas_gmm.master_project.observation import Observation
+from torch_geometric.nn import GATv2Conv, GINConv
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.networks.base import GnnBase
 from tapas_gmm.utils.select_gpu import device
 
 
 class Gnn(GnnBase):
-
     def __init__(
         self,
         *args,
         dim_gat_out: int = 64,
-        dim_head: int = 32,
         attention_heads: int = 1,
         **kwargs,
     ):
@@ -35,14 +32,14 @@ class Gnn(GnnBase):
 
         self.gat1 = GATv2Conv(
             (self.dim_encoder, self.dim_encoder),
-            self.dim_state,
+            self.dim_states,
             heads=attention_heads,
             concat=False,
             edge_dim=1,
             add_self_loops=True,
         )
         self.gat2 = GATv2Conv(
-            (self.dim_state, self.dim_state),
+            (self.dim_states, self.dim_states),
             dim_gat_out,
             heads=attention_heads,
             concat=False,
@@ -60,8 +57,8 @@ class Gnn(GnnBase):
 
     def forward(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch: Batch = self.to_batch(obs, goal)
         x_dict = batch.x_dict
@@ -91,38 +88,19 @@ class Gnn(GnnBase):
         value = self.critic_head(v_feat).squeeze(-1)
         return logits, value
 
-    def to_data(self, obs: Observation, goal: Observation) -> HeteroData:
-        goal_dict = self.cnv.tensor_state_dict_values(goal)
-        obs_dict = self.cnv.tensor_state_dict_values(obs)
-        obs_encoded = [
-            self.encoder_obs[k.value.type.name](v.to(device))
-            for k, v in obs_dict.items()
-        ]
-        goal_encoded = [
-            self.encoder_goal[k.value.type.name](v.to(device))
-            for k, v in goal_dict.items()
-        ]
-        obs_tensor = torch.stack(obs_encoded, dim=0)  # [num_states, feature_size]
-        goal_tensor = torch.stack(goal_encoded, dim=0)  # [num_states, feature_size]
-        task_tensor = self.cnv.tensor_task_distance(obs).to(device)
+    def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
+        obs_tensor, goal_tensor = self.encode_states(obs, goal)
+        task_tensor = self.task_state_distances(obs).to(device)
 
         data = HeteroData()
         data["goal"].x = goal_tensor
         data["obs"].x = obs_tensor
         data["task"].x = task_tensor
 
-        data[("goal", "goal-obs", "obs")].edge_index = self.cnv.state_state_edges(
-            full=True
-        ).to(device)
+        data[("goal", "goal-obs", "obs")].edge_index = self.state_state_full.to(device)
 
-        data[("obs", "obs-task", "task")].edge_index = self.cnv.state_task_edges(
-            full=False
-        ).to(device)
+        data[("obs", "obs-task", "task")].edge_index = self.state_task_full.to(device)
 
-        data[("goal", "goal-obs", "obs")].edge_attr = self.cnv.state_state_attr().to(
-            device
-        )
-        data[("obs", "obs-task", "task")].edge_attr = self.cnv.state_task_attr().to(
-            device
-        )
+        data[("goal", "goal-obs", "obs")].edge_attr = self.state_state_attr.to(device)
+        data[("obs", "obs-task", "task")].edge_attr = self.state_task_attr.to(device)
         return data

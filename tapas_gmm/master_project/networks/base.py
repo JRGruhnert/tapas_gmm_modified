@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import cached_property
 import torch
 import torch.nn as nn
 from torch.distributions import Categorical
@@ -7,11 +8,12 @@ from torch_geometric.data import Batch, HeteroData
 from build.lib.tapas_gmm.master_project.master_encoder import (
     QuaternionEncoder,
     ScalarEncoder,
-    TransformEncoder,
+    EulerEncoder,
 )
-from tapas_gmm.master_project.converter import Converter
-from tapas_gmm.master_project.definitions import State, StateType, Task
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.converter import NetworkConverter
+from tapas_gmm.master_project.observation import MasterObservation
+from tapas_gmm.master_project.state import State, StateType
+from tapas_gmm.master_project.task import Task
 from tapas_gmm.utils.select_gpu import device
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -24,31 +26,30 @@ class PPOType(Enum):
 
 
 class ActorCriticBase(nn.Module, ABC):
+
     def __init__(
         self,
-        tasks: list[Task],
         states: list[State],
-        tps: dict[Task, list[State]],
+        tasks: list[Task],
     ):
         super().__init__()
-        self.cnv = Converter(tasks, states, tps)
-        self.tasks = tasks
         self.states = states
-        self.dim_state = len(states)
+        self.tasks = tasks
+        self.dim_states = len(states)
         self.dim_tasks = len(tasks)
         self.dim_encoder = 32
         self.encoder_obs = nn.ModuleDict(
             {
-                StateType.Transform.name: TransformEncoder(self.dim_encoder),
-                StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Euler.name: EulerEncoder(self.dim_encoder),
+                StateType.Quat.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Scalar.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
         self.encoder_goal = nn.ModuleDict(
             {
-                StateType.Transform.name: TransformEncoder(self.dim_encoder),
-                StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Euler.name: EulerEncoder(self.dim_encoder),
+                StateType.Quat.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Scalar.name: ScalarEncoder(self.dim_encoder),
             }
         )
@@ -56,23 +57,23 @@ class ActorCriticBase(nn.Module, ABC):
     @abstractmethod
     def forward(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         pass
 
     @abstractmethod
     def to_batch(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ):
         pass
 
     def act(
         self,
-        obs: Observation,
-        goal: Observation,
+        obs: MasterObservation,
+        goal: MasterObservation,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward([obs], [goal])
         assert logits.shape == (
@@ -88,8 +89,8 @@ class ActorCriticBase(nn.Module, ABC):
 
     def evaluate(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
         action: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(obs) == len(goal), "Observation and Goal lists have different sizes."
@@ -107,25 +108,54 @@ class ActorCriticBase(nn.Module, ABC):
         dist_entropy = dist.entropy()
         return action_logprobs, value, dist_entropy
 
+    def state_type_dict_values(
+        self,
+        obs: MasterObservation,
+    ) -> dict[StateType, torch.Tensor]:
+        grouped = {t: [] for t in StateType}
+        for state in self.states:
+            value = state.value(obs.states[state.ident])
+            grouped[state.type].append(value)
+        return {
+            t: torch.stack(vals).float()
+            for t, vals in grouped.items()
+            if vals  # only include non-empty
+        }
+
+    def state_type_dict_distances(
+        self,
+        obs1: MasterObservation,
+        obs2: MasterObservation,
+    ) -> dict[StateType, torch.Tensor]:
+        grouped = {t: [] for t in StateType}
+        for state in self.states:
+            distance = state.distance(
+                obs1.states[state.ident], obs2.states[state.ident]
+            )
+            grouped[state.type].append(distance)
+        return {
+            t: torch.stack(vals).float()
+            for t, vals in grouped.items()
+            if vals  # only include non-empty
+        }
+
 
 class BaselineBase(ActorCriticBase):
     def to_batch(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ):
-        obs_dicts = [self.cnv.tensor_type_dict_values(o) for o in obs]
-        goal_dicts = [self.cnv.tensor_type_dict_values(g) for g in goal]
-
-        keys = obs_dicts[0].keys()
+        obs_dicts = [self.state_type_dict_values(o) for o in obs]
+        goal_dicts = [self.state_type_dict_values(g) for g in goal]
 
         tensor_obs = {
             k: torch.stack([d[k] for d in obs_dicts], dim=0).detach().to(device)
-            for k in keys
+            for k in obs_dicts[0].keys()
         }
         tensor_goal = {
             k: torch.stack([d[k] for d in goal_dicts], dim=0).detach().to(device)
-            for k in keys
+            for k in goal_dicts[0].keys()
         }
 
         return tensor_obs, tensor_goal
@@ -133,29 +163,109 @@ class BaselineBase(ActorCriticBase):
 
 class GnnBase(ActorCriticBase, ABC):
     @abstractmethod
-    def to_data(self, obs: Observation, goal: Observation) -> HeteroData:
+    def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
         pass
 
     def to_batch(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> Batch:
         data = []
         for o, g in zip(obs, goal):
             data.append(self.to_data(o, g))
         return Batch.from_data_list(data)
 
-    # G = to_networkx(data[0], to_undirected=True)
-    # nx.draw(G, with_labels=True)
-    # G = to_networkx(data[0])
-    # pos = nx.spring_layout(G)  # layout algorithm
-    # nx.draw(G, with_labels=True, node_color="lightblue", edge_color="gray")
-    # plt.show()
-    # Convert edge list to DataFrame
-    # edges = pd.DataFrame(G.edges(), columns=["source", "target"])
+    def encode_states(
+        self, obs: MasterObservation, goal: MasterObservation
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        obs_dict = self.state_type_dict_values(obs)
+        goal_dict = self.state_type_dict_values(goal)
+        obs_encoded = [
+            self.encoder_obs[k.name](v.to(device)) for k, v in obs_dict.items()
+        ]
+        goal_encoded = [
+            self.encoder_goal[k.name](v.to(device)) for k, v in goal_dict.items()
+        ]
+        obs_tensor = torch.stack(obs_encoded, dim=0)  # [num_states, feature_size]
+        goal_tensor = torch.stack(goal_encoded, dim=0)  # [num_states, feature_size]
+        return obs_tensor, goal_tensor
 
-    # Save to CSV
-    # edges.to_csv("graph_edges.csv", index=False)
-    # nodes = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient="index")
-    # nodes.to_csv("graph_nodes.csv")
+    def task_state_distances(
+        self,
+        obs1: MasterObservation,
+        obs2: MasterObservation = None,
+        pad: bool = False,
+    ) -> torch.Tensor:
+        features: list[torch.Tensor] = []
+        for task in self.tasks:
+            distances = task.distances(obs1, obs2, pad)
+            features.append(distances)
+        return torch.stack(features, dim=0).float()
+
+    @cached_property
+    def state_state_full(self) -> torch.Tensor:
+        src = (
+            torch.arange(self.dim_states)
+            .unsqueeze(1)
+            .repeat(1, self.dim_states)
+            .flatten()
+        )
+        dst = torch.arange(self.dim_states).repeat(self.dim_states)
+        return torch.stack([src, dst], dim=0)
+
+    @cached_property
+    def state_task_full(self) -> torch.Tensor:
+        src = (
+            torch.arange(self.dim_states)
+            .unsqueeze(1)
+            .repeat(1, self.dim_tasks)
+            .flatten()
+        )
+        dst = torch.arange(self.dim_tasks).repeat(self.dim_states)
+        return torch.stack([src, dst], dim=0)
+
+    @cached_property
+    def state_state_sparse(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_states)
+        return torch.stack([indices, indices], dim=0)
+
+    @cached_property
+    def task_task_sparse(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_tasks)
+        return torch.stack([indices, indices], dim=0)
+
+    @cached_property
+    def state_task_sparse(self) -> torch.Tensor:
+        edge_list = []
+        for task in self.tasks:
+            for state_ident in task.task_parameters:
+                edge_list.append((state_ident.value, task.ident.value))
+        return torch.tensor(edge_list, dtype=torch.long).t()
+
+    @cached_property
+    def task_to_single(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_tasks)
+        return torch.stack([indices, torch.zeros_like(indices)], dim=0)
+
+    @cached_property
+    def state_state_attr(self) -> torch.Tensor:
+        return (
+            (self.state_state_full[0] == self.state_state_full[1])
+            .to(torch.float)
+            .unsqueeze(-1)
+        )
+
+    @cached_property
+    def state_task_attr(self) -> torch.Tensor:
+        sparse = self.state_task_sparse[0] * self.dim_tasks + self.state_task_sparse[1]
+        full = self.state_task_full[0] * self.dim_tasks + self.state_task_full[1]
+        return torch.isin(full, sparse).float().unsqueeze(-1)
+
+    def state_task_attr_weighted(self, current: MasterObservation) -> torch.Tensor:
+        dist_matrix = self.task_state_distances(current, pad=True)  # [T, S, 2]
+        # Now safely get edge attributes for (task, state) pairs: [E, 2]
+        edge_attr = dist_matrix[
+            self.state_task_full[1], self.state_task_full[0]
+        ]  # [E, 2]
+        return edge_attr

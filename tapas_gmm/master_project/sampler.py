@@ -4,26 +4,27 @@ import random
 from typing import Dict
 import numpy as np
 
-from tapas_gmm.master_project.definitions import (
-    State,
-    StateType,
-)
+from tapas_gmm.master_project.state import State, StateIdent, StateType
 
 
-@dataclass
-class SamplerConfig:
-    pass
-
-
-class Sampler:
-    def __init__(self, config: SamplerConfig, states: list[State]):
-        self.config = config
+class SceneMaker:
+    def __init__(self, states: list[State]):
         self.states = states
 
-    def sample_from_values(self, values):
+    def make(self, scene_obs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Samples a new scene observation based on the current one."""
+        # Sample a pre-condition
+        pre_condition = self._sample_pre_condition(scene_obs)
+
+        # Sample a post-condition that is different from the pre-condition
+        post_condition = self._sample_post_condition(pre_condition)
+
+        return pre_condition, post_condition
+
+    def _sample_from_values(self, values):
         return random.choice(values)
 
-    def parse_scene_obs(self, scene_obs):
+    def _parse_scene_obs(self, scene_obs):
         # an object pose is composed of position (3) and orientation (4 for quaternion)  / (3 for euler)
         n_obj = 3
         n_doors = 2
@@ -49,24 +50,24 @@ class Sampler:
 
         return door_info, button_info, switch_info, light_info, obj_info
 
-    def update_scene_obs(
-        self, scene_dict: Dict[State, np.ndarray | float], scene_obs: np.ndarray
+    def _update_scene_obs(
+        self, scene_dict: Dict[StateIdent, np.ndarray | float], scene_obs: np.ndarray
     ) -> np.ndarray:
         """Return state information of the doors, drawers and shelves."""
         door_states, button_states, switch_states, light_states, object_poses = (
-            self.parse_scene_obs(scene_obs)
+            self._parse_scene_obs(scene_obs)
         )
 
         door_states = [
-            scene_dict.get(State.Slide_State, door_states[0]),
-            scene_dict.get(State.Drawer_State, door_states[1]),
+            scene_dict.get(StateIdent.base__slide, door_states[0]),
+            scene_dict.get(StateIdent.base__drawer, door_states[1]),
         ]
-        button_states = [scene_dict.get(State.Button_State, button_states[0])]
-        switch_states = [scene_dict.get(State.Switch_State, switch_states[0])]
+        button_states = [scene_dict.get(StateIdent.base__button, button_states[0])]
+        switch_states = [scene_dict.get(StateIdent.base__switch, switch_states[0])]
 
         light_states = [
-            scene_dict.get(State.Lightbulb_State, light_states[0]),
-            scene_dict.get(State.Led_State, light_states[1]),
+            scene_dict.get(StateIdent.base__lightbulb, light_states[0]),
+            scene_dict.get(StateIdent.base__led, light_states[1]),
         ]
 
         object_poses = list(
@@ -74,20 +75,32 @@ class Sampler:
                 *[
                     np.concatenate(
                         [
-                            scene_dict.get(State.Red_Transform, object_poses[0][:3]),
-                            scene_dict.get(State.Red_Quat, object_poses[0][-4:]),
+                            scene_dict.get(
+                                StateIdent.block_red_euler, object_poses[0][:3]
+                            ),
+                            scene_dict.get(
+                                StateIdent.block_red_quat, object_poses[0][-4:]
+                            ),
                         ],
                     ),
                     np.concatenate(
                         [
-                            scene_dict.get(State.Blue_Transform, object_poses[1][:3]),
-                            scene_dict.get(State.Blue_Quat, object_poses[1][-4:]),
+                            scene_dict.get(
+                                StateIdent.block_blue_euler, object_poses[1][:3]
+                            ),
+                            scene_dict.get(
+                                StateIdent.block_blue_quat, object_poses[1][-4:]
+                            ),
                         ],
                     ),
                     np.concatenate(
                         [
-                            scene_dict.get(State.Pink_Transform, object_poses[2][:3]),
-                            scene_dict.get(State.Pink_Quat, object_poses[2][-4:]),
+                            scene_dict.get(
+                                StateIdent.block_pink_euler, object_poses[2][:3]
+                            ),
+                            scene_dict.get(
+                                StateIdent.block_pink_quat, object_poses[2][-4:]
+                            ),
                         ],
                     ),
                 ]
@@ -98,43 +111,32 @@ class Sampler:
             [door_states, button_states, switch_states, light_states, object_poses]
         )
 
-    def sample_pre_condition(self, scene_obs: np.ndarray) -> np.ndarray:
-        scene_dict: Dict[State, np.ndarray | float] = {}
-        for state in list(State):
-            if state in self.states:
-                if state.value.type is StateType.Scalar:
-                    scene_dict[state] = self.sample_from_values(
-                        [state.value.min, state.value.max]
-                    )
-                elif (
-                    state.value.type is StateType.Transform
-                    or state.value.type is StateType.Quaternion
-                ):
-                    pass
-                    # raise NotImplementedError("Not Supported.")
-                else:
-                    raise NotImplementedError("StateType sampling not implemented.")
-
-        # Hack to make light states depending on button and switch states
-        # if State.Switch_State in scene_dict:
-        #    if scene_dict[State.Switch_State] > 0.0:
-        #        scene_dict[State.Lightbulb_State] = 1.0
-        #    else:
-        #        scene_dict[State.Lightbulb_State] = 0.0
-        if State.Button_State in scene_dict:
-            if scene_dict[State.Button_State] > State.Button_State.value.min:
-                scene_dict[State.Led_State] = State.Led_State.value.max
+    def _sample_pre_condition(self, scene_obs: np.ndarray) -> np.ndarray:
+        scene_dict: Dict[StateIdent, np.ndarray | float] = {}
+        for state in self.states:
+            if state.type is StateType.Scalar:
+                scene_dict[state] = self._sample_from_values(
+                    [state.lower_bound, state.upper_bound]
+                )
+            elif state.type is StateType.Euler or state.type is StateType.Quat:
+                pass  # NOTE: Euler and Quat states are not sampled here, they are set directly
             else:
-                scene_dict[State.Led_State] = State.Led_State.value.min
+                raise NotImplementedError("StateType sampling not implemented.")
 
-        return self.update_scene_obs(scene_dict, scene_obs)
+        if StateIdent.base__button in scene_dict:
+            if scene_dict[StateIdent.base__button] > StateIdent.base__button.value.min:
+                scene_dict[StateIdent.base__led] = StateIdent.base__led.value.max
+            else:
+                scene_dict[StateIdent.base__led] = StateIdent.base__led.value.min
 
-    def sample_post_condition(self, scene_obs: np.ndarray) -> np.ndarray:
+        return self._update_scene_obs(scene_dict, scene_obs)
+
+    def _sample_post_condition(self, scene_obs: np.ndarray) -> np.ndarray:
         """Samples an environment state that is different to the current one"""
 
-        candidate = self.sample_pre_condition(scene_obs)
+        candidate = self._sample_pre_condition(scene_obs)
 
         while np.array_equal(candidate, scene_obs):
-            candidate = self.sample_pre_condition(scene_obs)
+            candidate = self._sample_pre_condition(scene_obs)
 
         return candidate

@@ -4,7 +4,7 @@ from torch.distributions import Categorical
 from torch_geometric.data import Batch, HeteroData
 from torch_geometric.nn import GINEConv, GINConv, GIN
 from torch_geometric.nn import GATv2Conv
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.networks.base import GnnBase, PPOType
 from tapas_gmm.utils.select_gpu import device
 from tapas_gmm.master_project.networks.layers.mlp import (
@@ -105,49 +105,34 @@ class Gnn(GnnBase):
 
     def forward(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         batch: Batch = self.to_batch(obs, goal)
         probs = self.actor(batch)
         value = self.critic(batch)
         return probs, value
 
-    def to_data(self, obs: Observation, goal: Observation) -> HeteroData:
-        obs_dict = self.cnv.tensor_state_dict_values(obs)
-        goal_dict = self.cnv.tensor_state_dict_values(goal)
-        obs_encoded = [
-            self.encoder_obs[k.value.type.name](v.to(device))
-            for k, v in obs_dict.items()
-        ]
-        goal_encoded = [
-            self.encoder_goal[k.value.type.name](v.to(device))
-            for k, v in goal_dict.items()
-        ]
-        obs_tensor = torch.stack(obs_encoded, dim=0)  # [num_states, feature_size]
-        goal_tensor = torch.stack(goal_encoded, dim=0)  # [num_states, feature_size]
-        # task_tensor = self.cnv.tensor_task_distance(obs)
-
+    def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
+        obs_tensor, goal_tensor = self.encode_states(obs, goal)
         data = HeteroData()
         data["goal"].x = goal_tensor
         data["obs"].x = obs_tensor
         data["task"].x = torch.zeros(self.dim_tasks, self.dim_encoder)
         data["value"].x = torch.zeros(1, self.dim_encoder)
 
-        data[("goal", "goal-obs", "obs")].edge_index = self.cnv.state_state_sparse
-        data[("obs", "obs-task", "task")].edge_index = self.cnv.state_task_full
-        data[("task", "task-value", "value")].edge_index = self.cnv.task_to_single
+        data[("goal", "goal-obs", "obs")].edge_index = self.state_state_sparse
+        data[("obs", "obs-task", "task")].edge_index = self.state_task_full
+        data[("task", "task-value", "value")].edge_index = self.task_to_single
         # data[("goal", "goal-obs", "obs")].edge_attr = self.cnv.state_state_attr
         # data[("obs", "obs-task", "task")].edge_attr = self.cnv.state_task_attr
-        data[("obs", "obs-task", "task")].edge_attr = self.cnv.state_task_attr_weighted(
-            obs
-        )
+        data[("obs", "obs-task", "task")].edge_attr = self.state_task_attr_weighted(obs)
         return data.to(device)
 
     def act(
         self,
-        obs: Observation,
-        goal: Observation,
+        obs: MasterObservation,
+        goal: MasterObservation,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         probs, value = self.forward([obs], [goal])
         assert probs.shape == (
@@ -162,8 +147,8 @@ class Gnn(GnnBase):
 
     def evaluate(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
         action: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         assert len(obs) == len(goal), "Observation and Goal lists have different sizes."

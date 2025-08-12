@@ -69,6 +69,14 @@ class Calvin(BaseEnvironment):
             raise RuntimeError("Could not create environment.")
         self.env.reset()
 
+    @property
+    def surfaces(self) -> dict[str, np.ndarray]:
+        """
+        Returns a dictionary of surfaces in the environment.
+        The keys are the surface names and the values are the surface poses.
+        """
+        return self.env.surfaces
+
     def close(self):
         self.env.close()
 

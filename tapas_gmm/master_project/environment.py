@@ -1,27 +1,32 @@
 from dataclasses import dataclass
 
 import numpy as np
+import torch
+
 from tapas_gmm.env.calvin import Calvin
-from tapas_gmm.master_project.definitions import (
+from tapas_gmm.master_project.state import (
     State,
+    StateIdent,
     StateSpace,
-    Task,
-    TaskSpace,
-    convert_to_states,
-    convert_to_tasks,
 )
-from tapas_gmm.master_project.observation import Observation, tapas_format
+from tapas_gmm.master_project.task import (
+    TaskIdent,
+    TaskSpace,
+    Task,
+)
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.evaluator import (
-    Evaluator,
+    StateEvaluator,
     EvaluatorConfig,
 )
-from tapas_gmm.master_project.sampler import (
-    Sampler,
-    SamplerConfig,
-)
-from tapas_gmm.master_project.storage import (
-    Storage,
-    StorageConfig,
+from tapas_gmm.master_project.sampler import SceneMaker
+from tapas_gmm.policy.policy import Policy
+from tapas_gmm.utils.observation import (
+    CameraOrder,
+    SceneObservation,
+    SingleCamObservation,
+    dict_to_tensordict,
+    empty_batchsize,
 )
 
 
@@ -33,71 +38,54 @@ class MasterEnvConfig:
     pybullet_vis: bool
     debug_vis: bool
     evaluator: EvaluatorConfig
-    storage: StorageConfig
-    sampler: SamplerConfig
     real_time: bool
 
 
 class MasterEnv:
-
     def __init__(
         self,
         config: MasterEnvConfig,
+        states: list[State],
+        tasks: list[Task],
     ):
         self.config = config
-        self.tasks = convert_to_tasks(config.task_space)
-        self.states = convert_to_states(config.state_space)
-
-        if self.config.task_space == TaskSpace.SMALL:
-            self.config.evaluator.allowed_steps = 6  # Max 6 Steps needed
-        else:
-            self.config.evaluator.allowed_steps = 20  # Max 16 Steps needed
-
         self.env = Calvin(
-            eval=config.eval_mode, vis=config.pybullet_vis, real_time=config.real_time
+            eval=config.eval_mode,
+            vis=config.pybullet_vis,
+            real_time=config.real_time,
         )
-        self.evaluator = Evaluator(config.evaluator, self.tasks, self.states)
-        self.sampler = Sampler(config.sampler, self.states)
-        self.policy_storage = Storage(config.storage, self.tasks, self.states)
-        self.obs: Observation = None
+        self.evaluator = StateEvaluator(
+            config.evaluator,
+            self.env.surfaces,
+            states,
+            tasks,
+        )
+        self.scene_maker = SceneMaker(states)
+        self.current: MasterObservation = None
         self.last_gripper_action = [1.0]  # open
 
-    def publish(
-        self,
-    ) -> tuple[list[Task], list[State], dict[Task, dict[State, np.ndarray]]]:
-        return self.tasks, self.states, self.policy_storage.task_parameter()
-
-    def reset(self) -> tuple[Observation, Observation]:
-        calvin_rnd, _, _, _ = self.env.reset(settle_time=0)
+    def reset(self) -> tuple[MasterObservation, MasterObservation]:
+        sample, _, _, _ = self.env.reset(settle_time=0)
         ### Sampling goal and current state
-        scene_obs = self.sampler.sample_pre_condition(calvin_rnd.scene_obs)
-        scene_goal = self.sampler.sample_post_condition(scene_obs)
+        start_scene, goal_scene = self.scene_maker.make(sample.scene_obs)
         # Reset environment twice to get CalvinObservation (maybe find a better way)
         # NOTE do not switch order of resets!!
-        calvin_goal, _, _, _ = self.env.reset(scene_goal, static=False, settle_time=50)
-        self.calvin_obs, _, _, _ = self.env.reset(
-            scene_obs, static=False, settle_time=50
-        )
-        self.obs = Observation(self.calvin_obs)
-        self.goal = Observation(calvin_goal)
-        self.evaluator.reset(self.obs, self.goal)
-        return self.obs, self.goal
+        calvin_goal, _, _, _ = self.env.reset(goal_scene, static=False, settle_time=50)
+        calvin_curr, _, _, _ = self.env.reset(start_scene, static=False, settle_time=50)
+        self.current = MasterObservation(calvin_curr)
+        self.goal = MasterObservation(calvin_goal)
+        self.evaluator.reset(self.current, self.goal)
+        return self.current, self.goal
 
     def step(
-        self, task_id: int, verbose: bool = False
-    ) -> tuple[float, bool, Observation]:
-        task = Task.get_enum_by_index(task_id)
+        self, task: Task, verbose: bool = False
+    ) -> tuple[float, bool, MasterObservation]:
         viz_dict = {}  # TODO: Make available
-        # Loads Tapas Policy for that Task (batch predict config)
-        policy = self.policy_storage.get_policy(task)
-        policy.reset_episode(self.env)
+        task.policy.reset_episode(self.env)
         # Batch prediction for the given observation
         try:
-            prediction, _ = policy.predict(
-                tapas_format(self.calvin_obs, task, self.goal)
-            )
+            prediction, _ = task.policy.predict(self._to_tapas_format(task))
             for action in prediction:
-                print(type(action.gripper))
                 if len(action.gripper) is not 0:
                     self.last_gripper_action = action.gripper
                 ee_action = np.concatenate(
@@ -106,19 +94,163 @@ class MasterEnv:
                         self.last_gripper_action,
                     )
                 )
-                self.calvin_obs, _, _, _ = self.env.step(
+                calvin_obs, _, _, _ = self.env.step(
                     ee_action, self.config.debug_vis, viz_dict
                 )
                 if verbose:
-                    print(self.calvin_obs.ee_pose)
-                    print(self.calvin_obs.ee_state)
-                self.obs = Observation(self.calvin_obs)
+                    print(calvin_obs.ee_pose)
+                    print(calvin_obs.ee_state)
+                self.current = MasterObservation(calvin_obs)
         except FloatingPointError:
             # At some point the model crashes.
             # Have to debug if its because of bad input but seems to be not relevant for training
             print(f"Error happened!")
-        reward, done = self.evaluator.evaluate(self.obs)
-        return reward, done, self.obs
+        reward, done = self.evaluator.evaluate(self.current)
+        return reward, done, self.current
 
     def close(self):
         self.env.close()
+
+    def _to_tapas_format(self, task: Task) -> SceneObservation:  # type: ignore
+        """
+        Convert the observation from the environment to a SceneObservation. This format is used for TAPAS.
+
+        Returns
+        -------
+        SceneObservation
+            The observation in common format as SceneObservation.
+        """
+        if self.calvin_obs.action is None:
+            action = None
+        else:
+            action = torch.Tensor(self.calvin_obs.action)
+        if self.calvin_obs.reward is None:
+            reward = torch.Tensor([0.0])
+        else:
+            reward = torch.Tensor([self.calvin_obs.reward])
+
+        camera_obs = {}
+
+        for cam in self.calvin_obs._camera_names:
+            self.calvin_obs._rgb[cam] = (
+                self.calvin_obs._rgb[cam].transpose((2, 0, 1)) / 255
+            )
+            self.calvin_obs._mask[cam] = self.calvin_obs._mask[cam].astype(int)
+
+            camera_obs[cam] = SingleCamObservation(
+                **{
+                    "rgb": torch.Tensor(self.calvin_obs._rgb[cam]),
+                    "depth": torch.Tensor(self.calvin_obs._depth[cam]),
+                    "mask": torch.Tensor(self.calvin_obs._mask[cam]).to(torch.uint8),
+                    "extr": torch.Tensor(self.calvin_obs._extr[cam]),
+                    "intr": torch.Tensor(self.calvin_obs._intr[cam]),
+                },
+                batch_size=empty_batchsize,
+            )
+
+        multicam_obs = dict_to_tensordict(
+            {"_order": CameraOrder._create(self.calvin_obs._camera_names)} | camera_obs
+        )
+
+        object_pose_len = 7
+        object_poses_list = self.calvin_obs._low_dim_object_poses.reshape(
+            -1, object_pose_len
+        )
+
+        # TODO: Clean up this code
+        # Changing Taskparameter for reverse models
+        if task.reversed:
+            self.calvin_obs.ee_pose = _origin_ee_tp_pose
+            if task is TaskIdent.BlockDrawerBlueReversed:
+                transform = self.overwrite_taskparameter(
+                    self.goal.states[StateIdent.Blue_Transform]
+                )
+                object_poses_list[7] = torch.cat(
+                    [transform, self.goal.states[StateIdent.Blue_Quat]]
+                )
+            elif task is TaskIdent.BlockDrawerPinkReversed:
+                transform = self.overwrite_taskparameter(
+                    self.goal.states[StateIdent.Pink_Transform]
+                )
+                object_poses_list[8] = torch.cat(
+                    [transform, self.goal.states[StateIdent.Pink_Quat]]
+                )
+            elif task is TaskIdent.BlockDrawerRedReversed:
+                transform = self.overwrite_taskparameter(
+                    self.goal.states[StateIdent.Red_Transform]
+                )
+                object_poses_list[6] = torch.cat(
+                    [transform, self.goal.states[StateIdent.Red_Quat]]
+                )
+            elif task is TaskIdent.BlockTableBlueReversed:
+                object_poses_list[7] = torch.cat(
+                    [
+                        self.goal.states[StateIdent.Blue_Transform],
+                        self.goal.states[StateIdent.Blue_Quat],
+                    ]
+                )
+            elif task is TaskIdent.BlockTablePinkReversed:
+                object_poses_list[8] = torch.cat(
+                    [
+                        self.goal.states[StateIdent.Pink_Transform],
+                        self.goal.states[StateIdent.Pink_Quat],
+                    ]
+                )
+            elif task is TaskIdent.BlockTableRedReversed:
+                object_poses_list[6] = torch.cat(
+                    [
+                        self.goal.states[StateIdent.Red_Transform],
+                        self.goal.states[StateIdent.Red_Quat],
+                    ]
+                )
+
+        object_poses = dict_to_tensordict(
+            {
+                f"obj{i:03d}": torch.Tensor(pose)
+                for i, pose in enumerate(object_poses_list)
+            },
+        )
+
+        joint_pos = torch.Tensor(self.calvin_obs._joint_pos)
+        joint_vel = torch.Tensor(self.calvin_obs._joint_vel)
+        ee_pose = torch.Tensor(self.calvin_obs.ee_pose)
+        ee_state = torch.Tensor([self.calvin_obs.ee_state])
+
+        object_state_len = 1
+        object_states_list = self.calvin_obs._low_dim_object_states.reshape(
+            -1, object_state_len
+        )
+
+        object_states = dict_to_tensordict(
+            {
+                f"obj{i:03d}": torch.Tensor(state)
+                for i, state in enumerate(object_states_list)
+            },
+        )
+
+        obs = SceneObservation(
+            feedback=reward,
+            action=action,
+            cameras=multicam_obs,
+            ee_pose=ee_pose,
+            gripper_state=ee_state,
+            object_poses=object_poses,
+            object_states=object_states,
+            joint_pos=joint_pos,
+            joint_vel=joint_vel,
+            batch_size=empty_batchsize,
+        )
+        return obs
+
+    def overwrite_taskparameter(self, transform: torch.Tensor) -> torch.Tensor:
+        for name, (min_corner, max_corner) in self.surfaces.items():
+            box_min = torch.tensor(min_corner)
+            box_max = torch.tensor(max_corner)
+            if torch.all(transform >= box_min) and torch.all(transform <= box_max):
+                if name == "drawer_closed":
+                    transform = (
+                        transform.clone()  # TODO: change that. its doubled from sampler
+                    )  # Create a copy to avoid modifying the original
+                    transform[1] -= 0.18  # Adjust y-coordinate for closed drawer
+                    return transform
+        return transform

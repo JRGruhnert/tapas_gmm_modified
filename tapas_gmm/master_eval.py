@@ -3,7 +3,7 @@ from datetime import datetime
 from omegaconf import OmegaConf, SCMode
 
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
-from tapas_gmm.master_project.agent import Agent, AgentConfig
+from tapas_gmm.master_project.agent import MasterAgent, AgentConfig
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.utils.argparse import parse_and_build_config
 
@@ -21,7 +21,7 @@ def train_agent(config: MasterConfig):
     # Initialize the environment and agent
     env = MasterEnv(config.env)
     tasks, states, tps = env.publish()
-    agent = Agent(config.agent, config.nt, config.tag, tasks, states, tps)
+    agent = MasterAgent(config.agent, config.nt, config.tag, tasks, states, tps)
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)

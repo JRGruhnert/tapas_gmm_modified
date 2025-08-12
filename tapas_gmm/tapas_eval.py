@@ -23,7 +23,7 @@ from tapas_gmm.master_project.converter import (
 import wandb
 from tapas_gmm.env.environment import BaseEnvironment, BaseEnvironmentConfig
 from tapas_gmm.policy import import_policy
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.policy.policy import Policy, PolicyConfig
 from tapas_gmm.utils.argparse import parse_and_build_config
 from tapas_gmm.utils.config import value_not_set
@@ -188,7 +188,7 @@ def run_episode(
     obs, reward, done, _ = env.reset(
         sample_pre_condition(calvin_obs.scene_obs, True), static=True
     )
-    obs = Observation(calvin_obs).tapas_format
+    obs = MasterObservation(calvin_obs).tapas_format
     if keyboard_obs is not None:
         keyboard_obs.reset()
 
@@ -359,7 +359,7 @@ def process_step(
             break
 
         if type(obs) is CalvinObservation:
-            obs = Observation(obs).tapas_format
+            obs = MasterObservation(obs).tapas_format
         else:
             obs.action = ee_action
             obs.feedback = step_reward

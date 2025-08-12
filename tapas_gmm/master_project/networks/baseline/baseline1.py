@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from tapas_gmm.master_project.networks.base import BaselineBase
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.utils.select_gpu import device
 
 
@@ -14,7 +14,7 @@ class Baseline(BaselineBase):
     ):
         super().__init__(*args, **kwargs)
 
-        self.combined_feature_dim = self.dim_encoder * self.dim_state * 2
+        self.combined_feature_dim = self.dim_encoder * self.dim_states * 2
 
         h_dim1 = self.combined_feature_dim // 2
         h_dim2 = h_dim1 // 2
@@ -36,8 +36,8 @@ class Baseline(BaselineBase):
 
     def forward(
         self,
-        obs: list[Observation],
-        goal: list[Observation],
+        obs: list[MasterObservation],
+        goal: list[MasterObservation],
     ) -> tuple[torch.Tensor, torch.Tensor]:
         # obs and goal are dicts with keys 'euler', 'quat', 'scalar'
         obs_dict, goal_dict = self.to_batch(obs, goal)

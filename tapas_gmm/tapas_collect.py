@@ -14,12 +14,12 @@ from tapas_gmm.env import Environment
 from tapas_gmm.env.calvin import CalvinConfig, Calvin
 
 from tapas_gmm.env.environment import BaseEnvironmentConfig
-from tapas_gmm.master_project.definitions import StateSpace, convert_to_states
-from tapas_gmm.master_project.sampler import Sampler, SamplerConfig
+from tapas_gmm.master_project.data.definitions import StateSpace, convert_to_states
+from tapas_gmm.master_project.sampler import SceneMaker, SamplerConfig
 from tapas_gmm.policy import PolicyEnum
 from tapas_gmm.policy.manual_policy import ManualCalvinPolicy
 from tapas_gmm.dataset.scene import SceneDataset, SceneDatasetConfig
-from tapas_gmm.master_project.observation import Observation, tapas_format
+from tapas_gmm.master_project.observation import MasterObservation, tapas_format
 from tapas_gmm.utils.argparse import parse_and_build_config
 from tapas_gmm.utils.misc import (
     DataNamingConfig,
@@ -56,7 +56,7 @@ def main(config: Config) -> None:
     keyboard_obs = KeyboardObserver()
     policy = ManualCalvinPolicy(config, env, keyboard_obs)
     states = convert_to_states(StateSpace.ALL)
-    sampler = Sampler(SamplerConfig(), states)
+    sampler = SceneMaker(SamplerConfig(), states)
     assert config.data_naming.data_root is not None
 
     save_path = pathlib.Path(config.data_naming.data_root) / config.task
@@ -121,7 +121,7 @@ def main(config: Config) -> None:
                         ebar.set_description("Saving trajectory")
                         replay_memory.save_current_traj()
                         obs, _, policy_done, _ = env.reset(
-                            sampler.sample_pre_condition(obs.scene_obs)
+                            sampler._sample_pre_condition(obs.scene_obs)
                         )
                         keyboard_obs.reset()
                         policy.reset_episode(env)
@@ -137,7 +137,7 @@ def main(config: Config) -> None:
                         ebar.set_description("Resetting without saving traj")
                         replay_memory.reset_current_traj()
                         obs, _, _, _ = env.reset(
-                            sampler.sample_pre_condition(obs.scene_obs)
+                            sampler._sample_pre_condition(obs.scene_obs)
                         )
                         # logger.debug(obs.scene_obs)
                         keyboard_obs.reset()

@@ -4219,6 +4219,38 @@ class AutoTPGMM(TPGMM):
         self.segment_frames = ckpt.segment_frames
         self.segment_frame_views = ckpt.segment_frame_views
 
+    def get_frame_origins_euler(self, reversed: bool = False) -> torch.Tensor:
+        """
+        Get the frame origins of the model. If reversed, returns the frame origins
+        in the order of the frames.
+        """
+        if self._demos is None:
+            raise RuntimeError("Model not fitted yet.")
+
+        if not hasattr(self._demos, "frame_origins_pos"):
+            raise RuntimeError("Demos version is too old.")
+
+        if reversed:
+            return self._demos.frame_origins_pos
+        else:
+            return self._demos.frame_targets_pos
+
+    def get_frame_origins_quats(self, reversed: bool = False) -> torch.Tensor:
+        """
+        Get the frame origins of the model. If reversed, returns the frame origins
+        in the order of the frames.
+        """
+        if self._demos is None:
+            raise RuntimeError("Model not fitted yet.")
+
+        if not hasattr(self._demos, "frame_origins_quats"):
+            raise RuntimeError("Demos version is too old.")
+
+        if reversed:
+            return self._demos.frame_origins_quats
+        else:
+            return self._demos.frame_targets_quats
+
 
 def _get_rbd_manifolds_per_frame(position_only: bool, add_action_dim: bool) -> int:
     manifolds_per_frame = 1 if position_only else 2

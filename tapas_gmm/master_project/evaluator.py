@@ -1,18 +1,16 @@
-from dataclasses import dataclass, field
-from typing import Dict
-
-from matplotlib import table
+from dataclasses import dataclass
+from enum import Enum
 import numpy as np
 import torch
-from tapas_gmm.master_project.converter import Converter
-from tapas_gmm.master_project.definitions import (
-    RewardMode,
-    State,
-    StateSuccess,
-    StateType,
-    Task,
-)
-from tapas_gmm.master_project.observation import Observation
+from tapas_gmm.master_project.state import State, StateIdent, StateSuccess, StateType
+from tapas_gmm.master_project.task import Task
+from tapas_gmm.master_project.observation import MasterObservation
+
+
+class RewardMode(Enum):
+    SPARSE = 0
+    RANGE = 1
+    ONOFF = 2
 
 
 @dataclass
@@ -21,54 +19,34 @@ class EvaluatorConfig:
     reward_mode: RewardMode = RewardMode.SPARSE
     max_reward: float = 100.0
     min_reward: float = 0.0
-    success_threshold: Dict[StateType, float] = field(
-        default_factory=lambda: {
-            StateType.Transform: 0.05,
-            StateType.Quaternion: 0.1,
-            StateType.Scalar: 0.05,
-        }
-    )
+    success_threshold: float = 0.05
 
 
-class Evaluator:
+class StateEvaluator:
     def __init__(
         self,
         config: EvaluatorConfig,
-        tasks: list[Task],
+        surfaces: dict[str, np.ndarray],
         states: list[State],
+        tasks: list[Task],
     ):
         self.config = config
-        self.steps_left = config.allowed_steps
+        self.steps_left = 20  # TODO: Change
         self.states = states
         self.tasks = tasks
-        self.converter = Converter(states=self.states, tasks=self.tasks)
-        self.surfaces = {
-            "table": [[0.0, -0.15, 0.46], [0.30, -0.03, 0.46]],
-            # "slider_left": [[-0.32, 0.05, 0.46], [-0.16, 0.12, 0.46]],
-            # "slider_right": [[-0.05, 0.05, 0.46], [0.13, 0.12, 0.46]],
-            "drawer_open": [[0.04, -0.35, 0.38], [0.30, -0.21, 0.38]],
-            "drawer_closed": [[0.04, -0.16, 0.38], [0.30, -0.03, 0.38]],
-        }  # changed drawer box since its a movable surface
-        # NOTE: Coords for original surfaces
-        # table: [[0.0, -0.15, 0.46], [0.30, -0.03, 0.46]]
-        # slider_left: [[-0.32, 0.05, 0.46], [-0.16, 0.12, 0.46]]
-        # slider_right: [[-0.05, 0.05, 0.46], [0.13, 0.12, 0.46]]
-        # drawer_open: [[0.04, -0.35, 0.38], [0.30, -0.21, 0.38]]
-
+        self.surfaces = surfaces
         # Internal States
-        self.prev_dist: Dict[State, torch.Tensor] = {}
-        self.last: Observation = None
-        self.goal: Observation = None
+        self.last: MasterObservation = None
+        self.goal: MasterObservation = None
         self.terminal = False
 
-    def reset(self, obs: Observation, goal: Observation):
-        self.prev_dist = self.converter.dict_distance(obs, goal)
-        self.steps_left = self.config.allowed_steps
+    def reset(self, obs: MasterObservation, goal: MasterObservation):
+        self.steps_left = 20  # TODO: Change
         self.last = obs
         self.goal = goal
         self.terminal = False
 
-    def evaluate(self, obs: Observation) -> tuple[float, bool]:
+    def evaluate(self, obs: MasterObservation) -> tuple[float, bool]:
         if self.terminal:
             raise UserWarning(
                 "Episode already ended. Please reset the evaluator with the new goal and state."
@@ -101,8 +79,8 @@ class Evaluator:
 
     def difference_reward(
         self,
-        prev: dict[State, torch.Tensor],
-        next: dict[State, torch.Tensor],
+        prev: dict[StateIdent, torch.Tensor],
+        next: dict[StateIdent, torch.Tensor],
     ) -> float:
         total = 0.0
         for key in prev:
@@ -115,8 +93,8 @@ class Evaluator:
 
     def on_off_reward(
         self,
-        prev: dict[State, torch.Tensor],
-        next: dict[State, torch.Tensor],
+        prev: dict[StateIdent, torch.Tensor],
+        next: dict[StateIdent, torch.Tensor],
     ) -> float:
         total = 0.0
         for key in prev:
@@ -130,15 +108,14 @@ class Evaluator:
 
     def is_terminal(
         self,
-        obs: Observation,
-        dist: Dict[State, torch.Tensor],
+        obs: MasterObservation,
     ) -> bool:
         ##### Checking if goal is reached
         goal_reached = True
         for state in self.states:
-            state_type = state.value.type
-            if state.value.success == StateSuccess.AREA:
-                if state_type is StateType.Quaternion or state_type is StateType.Scalar:
+            state_type = state.type
+            if state.success == StateSuccess.AREA:
+                if state_type is StateType.Quat or state_type is StateType.Scalar:
                     raise ValueError(
                         "Quaternion and Scalar States don't support area based evaluation."
                     )
@@ -149,16 +126,21 @@ class Evaluator:
                 if goal_surface != next_surface:
                     goal_reached = False
                     break
-            elif state.value.success == StateSuccess.PRECISE:
-                if dist[state] > self.config.success_threshold[state_type]:
+            elif state.success == StateSuccess.PRECISE:
+                if (
+                    state.distance(
+                        obs.states[state.ident], self.goal.states[state.ident]
+                    ).item()
+                    > self.config.success_threshold
+                ):
                     goal_reached = False
                     break
-            elif state.value.success == StateSuccess.IGNORE:
+            elif state.success == StateSuccess.IGNORE:
                 pass  # Probably only Quaternions cause of Model recording
                 # State is not evaluated
             else:
                 raise NotImplementedError(
-                    f"State Success type: {state.value.success} is not implemented."
+                    f"State Success type: {state.success} is not implemented."
                 )
         return goal_reached
 
@@ -168,4 +150,5 @@ class Evaluator:
             box_max = np.array(max_corner)
             if np.all(transform >= box_min) and np.all(transform <= box_max):
                 return name
+        sampling_range = np.array(self.surfaces["test"])  # TODO: Change
         return None
