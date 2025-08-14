@@ -274,6 +274,39 @@ class Demos:
                     f"frame_{i}": v for i, v in enumerate(t.object_poses.swapdims(0, 1))
                 }
 
+        self._frame_map: list[str] = []
+        self._frame_map.append("ee")
+        for obj_name in trajectories[0].object_poses.keys():
+            self._frame_map.append(obj_name)
+
+        # Get initial object poses from all trajectories and concatenate them
+        start_object_poses = {
+            obj_name: torch.stack([o.object_poses[obj_name][0] for o in trajectories])
+            for obj_name in trajectories[0].object_poses.keys()
+        }
+        end_object_poses = {
+            obj_name: torch.stack([o.object_poses[obj_name][-1] for o in trajectories])
+            for obj_name in trajectories[0].object_poses.keys()
+        }
+        start_object_states = {
+            obj_name: torch.stack([o.object_states[obj_name][0] for o in trajectories])
+            for obj_name in trajectories[0].object_states.keys()
+        }
+        end_object_states = {
+            obj_name: torch.stack([o.object_states[obj_name][-1] for o in trajectories])
+            for obj_name in trajectories[0].object_states.keys()
+        }
+        start_object_poses["ee"] = torch.stack([o.ee_pose[0] for o in trajectories])
+        end_object_poses["ee"] = torch.stack([o.ee_pose[-1] for o in trajectories])
+        start_object_states["ee"] = torch.stack([o.ee_state[0] for o in trajectories])
+        end_object_states["ee"] = torch.stack([o.ee_state[-1] for o in trajectories])
+
+        # Get the initial and final object poses
+        self._start_object_poses = start_object_poses
+        self._end_object_poses = end_object_poses
+        self._start_object_states = start_object_states
+        self._end_object_states = end_object_states
+
         # Add the EE frame as the first frame. As this will be the obervation
         # we remove it later. However, it needs the same transformations, so
         # we add it here temporarily.
@@ -636,6 +669,41 @@ class Demos:
         self.stacked_gripper_states = self._subsample(
             self.gripper_states, indeces, dim=0
         )
+
+    @property
+    def frame_map(self) -> list[str]:
+        """
+        Get the mapping from frame index to frame name.
+        """
+        return self._frame_map
+
+    @property
+    def start_object_poses(self) -> dict[str, torch.Tensor]:
+        """
+        Get the initial object poses.
+        """
+        return self._start_object_poses
+
+    @property
+    def end_object_poses(self) -> dict[str, torch.Tensor]:
+        """
+        Get the final object poses.
+        """
+        return self._end_object_poses
+
+    @property
+    def start_object_states(self) -> dict[str, torch.Tensor]:
+        """
+        Get the initial object states.
+        """
+        return self._start_object_states
+
+    @property
+    def end_object_states(self) -> dict[str, torch.Tensor]:
+        """
+        Get the final object states.
+        """
+        return self._end_object_states
 
     @property
     def _n_gripper_states(self):

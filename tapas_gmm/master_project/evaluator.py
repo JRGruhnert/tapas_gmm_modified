@@ -52,13 +52,8 @@ class StateEvaluator:
                 "Episode already ended. Please reset the evaluator with the new goal and state."
             )
         self.steps_left -= 1
-        # Compute distances to goal
-        current_dist = self.converter.dict_distance(obs, self.goal)
-        # NOTE: Replace prev_dist when other reward modes implemented
-        # For sparse its not needed
-        self.prev_dist = current_dist
         if self.config.reward_mode is RewardMode.SPARSE:
-            terminal = self.is_terminal(obs, current_dist)
+            terminal = self.is_terminal(obs)
             if terminal:  # Success
                 self.terminal = terminal
                 # print(f"success {self.steps_left}")
@@ -150,5 +145,5 @@ class StateEvaluator:
             box_max = np.array(max_corner)
             if np.all(transform >= box_min) and np.all(transform <= box_max):
                 return name
-        sampling_range = np.array(self.surfaces["test"])  # TODO: Change
+        # sampling_range = np.array(self.surfaces["test"])  # TODO: Change
         return None

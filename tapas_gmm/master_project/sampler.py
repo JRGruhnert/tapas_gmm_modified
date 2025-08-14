@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import itertools
 import random
 from typing import Dict
@@ -59,15 +58,15 @@ class SceneMaker:
         )
 
         door_states = [
-            scene_dict.get(StateIdent.base__slide, door_states[0]),
-            scene_dict.get(StateIdent.base__drawer, door_states[1]),
+            scene_dict.get(StateIdent.Slide_State, door_states[0]),
+            scene_dict.get(StateIdent.Drawer_State, door_states[1]),
         ]
-        button_states = [scene_dict.get(StateIdent.base__button, button_states[0])]
-        switch_states = [scene_dict.get(StateIdent.base__switch, switch_states[0])]
+        button_states = [scene_dict.get(StateIdent.Button_State, button_states[0])]
+        switch_states = [scene_dict.get(StateIdent.Switch_State, switch_states[0])]
 
         light_states = [
-            scene_dict.get(StateIdent.base__lightbulb, light_states[0]),
-            scene_dict.get(StateIdent.base__led, light_states[1]),
+            scene_dict.get(StateIdent.Lightbulb_State, light_states[0]),
+            scene_dict.get(StateIdent.Led_State, light_states[1]),
         ]
 
         object_poses = list(
@@ -76,30 +75,30 @@ class SceneMaker:
                     np.concatenate(
                         [
                             scene_dict.get(
-                                StateIdent.block_red_euler, object_poses[0][:3]
+                                StateIdent.Block_Red_Euler, object_poses[0][:3]
                             ),
                             scene_dict.get(
-                                StateIdent.block_red_quat, object_poses[0][-4:]
-                            ),
-                        ],
-                    ),
-                    np.concatenate(
-                        [
-                            scene_dict.get(
-                                StateIdent.block_blue_euler, object_poses[1][:3]
-                            ),
-                            scene_dict.get(
-                                StateIdent.block_blue_quat, object_poses[1][-4:]
+                                StateIdent.Block_Red_Quat, object_poses[0][-4:]
                             ),
                         ],
                     ),
                     np.concatenate(
                         [
                             scene_dict.get(
-                                StateIdent.block_pink_euler, object_poses[2][:3]
+                                StateIdent.Block_Blue_Euler, object_poses[1][:3]
                             ),
                             scene_dict.get(
-                                StateIdent.block_pink_quat, object_poses[2][-4:]
+                                StateIdent.Block_Blue_Quat, object_poses[1][-4:]
+                            ),
+                        ],
+                    ),
+                    np.concatenate(
+                        [
+                            scene_dict.get(
+                                StateIdent.Block_Pink_Euler, object_poses[2][:3]
+                            ),
+                            scene_dict.get(
+                                StateIdent.Block_Pink_Quat, object_poses[2][-4:]
                             ),
                         ],
                     ),
@@ -115,7 +114,7 @@ class SceneMaker:
         scene_dict: Dict[StateIdent, np.ndarray | float] = {}
         for state in self.states:
             if state.type is StateType.Scalar:
-                scene_dict[state] = self._sample_from_values(
+                scene_dict[state.ident] = self._sample_from_values(
                     [state.lower_bound, state.upper_bound]
                 )
             elif state.type is StateType.Euler or state.type is StateType.Quat:
@@ -123,11 +122,8 @@ class SceneMaker:
             else:
                 raise NotImplementedError("StateType sampling not implemented.")
 
-        if StateIdent.base__button in scene_dict:
-            if scene_dict[StateIdent.base__button] > StateIdent.base__button.value.min:
-                scene_dict[StateIdent.base__led] = StateIdent.base__led.value.max
-            else:
-                scene_dict[StateIdent.base__led] = StateIdent.base__led.value.min
+        if StateIdent.Button_State in scene_dict:
+            scene_dict[StateIdent.Led_State] = scene_dict[StateIdent.Button_State]
 
         return self._update_scene_obs(scene_dict, scene_obs)
 

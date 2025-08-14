@@ -17,6 +17,11 @@ class StateType(Enum):
     Scalar = "Scalar"
 
 
+class StateBound(Enum):
+    Lower = "lower_bound"
+    Upper = "upper_bound"
+
+
 class StateSuccess(Enum):
     Area = "Area"  # Has to be in area
     Precise = "Precise"  # Has to be precise (with threshold)
@@ -26,7 +31,7 @@ class StateSuccess(Enum):
 class StateIdent(Enum):
     EE_Euler = "ee_euler"
     EE_Quat = "ee_quat"
-    EE_State = "ee_state"
+    EE_State = "ee"
     Slide_Euler = "base__slide_euler"
     Slide_Quat = "base__slide_quat"
     Slide_State = "base__slide"
@@ -161,6 +166,14 @@ class State:
     def upper_bound(self) -> torch.Tensor:
         """Returns the upper bound of the state."""
         return self._upper_bound
+
+    def get_state_bounds(self, bound: StateBound) -> torch.Tensor:
+        if bound == StateBound.Lower:
+            return self.lower_bound
+        elif bound == StateBound.Upper:
+            return self.upper_bound
+        else:
+            raise ValueError(f"Unknown state bound: {bound}")
 
     def normalize(self, x: torch.Tensor) -> torch.Tensor:
         """

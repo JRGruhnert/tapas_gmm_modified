@@ -219,7 +219,7 @@
         "lower_bound": [],
         "upper_bound": []
     },
-    "ee_state": {
+    "ee": {
         "type": "Scalar",
         "lower_bound": [
             0.0

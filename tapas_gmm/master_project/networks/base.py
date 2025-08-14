@@ -193,13 +193,12 @@ class GnnBase(ActorCriticBase, ABC):
 
     def task_state_distances(
         self,
-        obs1: MasterObservation,
-        obs2: MasterObservation = None,
+        obs: MasterObservation,
         pad: bool = False,
     ) -> torch.Tensor:
         features: list[torch.Tensor] = []
         for task in self.tasks:
-            distances = task.distances(obs1, obs2, pad)
+            distances = task.distances(obs, pad)
             features.append(distances)
         return torch.stack(features, dim=0).float()
 
@@ -238,9 +237,11 @@ class GnnBase(ActorCriticBase, ABC):
     @cached_property
     def state_task_sparse(self) -> torch.Tensor:
         edge_list = []
-        for task in self.tasks:
-            for state_ident in task.task_parameters:
-                edge_list.append((state_ident.value, task.ident.value))
+        for task_idx, task in enumerate(self.tasks):
+            tp = task.task_parameters
+            for state_idx, state in enumerate(self.states):
+                if state.ident in tp:
+                    edge_list.append((state_idx, task_idx))
         return torch.tensor(edge_list, dtype=torch.long).t()
 
     @cached_property

@@ -4,8 +4,9 @@ import json
 import pathlib
 from loguru import logger
 import torch
+from build.lib.conf.policy.models import tpgmm
 from tapas_gmm.master_project.observation import MasterObservation
-from tapas_gmm.master_project.state import StateIdent
+from tapas_gmm.master_project.state import StateBound, StateIdent
 from tapas_gmm.policy.policy import Policy
 from tapas_gmm.utils.select_gpu import device
 from tapas_gmm.policy import import_policy
@@ -31,10 +32,10 @@ class TaskIdent(Enum):
     BackFromOpenDrawer = "BackFromOpenDrawer"
     PressButton = "PressButton"
     BackFromPressButton = "BackFromPressButton"
-    MoveSliderToLeft = "MoveSliderToLeft"
-    MoveSliderToRight = "MoveSliderToRight"
-    BackFromMoveSliderToLeft = "BackFromMoveSliderToLeft"
-    BackFromMoveSliderToRight = "BackFromMoveSliderToRight"
+    SliderToLeft = "SliderToLeft"
+    SliderToRight = "SliderToRight"
+    BackFromSliderToLeft = "BackFromSliderToLeft"
+    BackFromSliderToRight = "BackFromSliderToRight"
     GrabRedBlockTable = "GrabRedBlockTable"
     GrabPinkBlockTable = "GrabPinkBlockTable"
     GrabBlueBlockTable = "GrabBlueBlockTable"
@@ -57,7 +58,6 @@ class Task:
         conditional: bool,
         policy_path: str,
         policy_name: str,
-        preconditions: dict[StateIdent, torch.Tensor],
         overwrites: list[StateIdent],
     ):
         self._ident: TaskIdent = ident
@@ -65,9 +65,9 @@ class Task:
         self._conditional: bool = conditional
         self._policy_path: str = policy_path
         self._policy_name: str = policy_name
-        self._preconditions: dict[StateIdent, torch.Tensor] = preconditions
         self._overwrites: list[StateIdent] = overwrites
         self._policy: GMMPolicy = self._load_policy()
+        self._preconditions: dict[StateIdent, StateBound] = None
 
     @property
     def ident(self) -> TaskIdent:
@@ -97,6 +97,10 @@ class Task:
     def preconditions(self) -> dict[StateIdent, float]:
         return self._preconditions
 
+    @property
+    def overwrites(self) -> list[StateIdent]:
+        return self._overwrites
+
     @classmethod
     def from_json(cls, ident_value: str, json_data: dict) -> "Task":
         """Create a Task instance from JSON data"""
@@ -109,21 +113,26 @@ class Task:
             or "overwrites" not in json_data
         ):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
-        if not isinstance(json_data["preconditions"], dict):
+        if not isinstance(json_data["reversed"], bool):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not isinstance(json_data["conditional"], bool):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not isinstance(json_data["policy_path"], str):
+            raise ValueError(f"Invalid JSON data for Task {ident_value}")
+        if not isinstance(json_data["policy_name"], str):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
         if not isinstance(json_data["overwrites"], list):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
         if not all(isinstance(item, str) for item in json_data["overwrites"]):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
-        # if json_data.get("preconditions", {})
+
         return cls(
             ident=TaskIdent(ident_value),
-            reversed=json_data.get("reversed", False),
-            conditional=json_data.get("conditional", False),
-            policy_path=json_data.get("policy_path", ""),
-            policy_name=json_data.get("policy_name", ""),
-            preconditions=json_data.get("preconditions", {}),
-            overwrites=json_data.get("overwrites", []),
+            reversed=json_data["reversed"],
+            conditional=json_data["conditional"],
+            policy_path=json_data["policy_path"],
+            policy_name=json_data["policy_name"],
+            overwrites=[StateIdent(item) for item in json_data["overwrites"]],
         )
 
     @classmethod
@@ -227,47 +236,131 @@ class Task:
         policy.eval()
         return policy
 
+    def quaternion_mean_exp_map(quaternions):
+        """
+        quaternions: tensor of shape [N, 4] where each row is [w, x, y, z]
+        """
+        # Convert quaternions to rotation vectors (axis-angle representation)
+        rotation_vectors = []
+
+        for q in quaternions:
+            # Normalize quaternion
+            q = q / torch.norm(q)
+
+            # Extract angle and axis
+            w, x, y, z = q
+            angle = 2 * torch.acos(torch.abs(w))
+
+            if torch.sin(angle / 2) > 1e-6:
+                axis = torch.tensor([x, y, z]) / torch.sin(angle / 2)
+                rotation_vector = angle * axis
+            else:
+                rotation_vector = torch.zeros(3)
+
+            rotation_vectors.append(rotation_vector)
+
+        # Average the rotation vectors
+        mean_rotation_vector = torch.stack(rotation_vectors).mean(dim=0)
+
+        # Convert back to quaternion
+        angle = torch.norm(mean_rotation_vector)
+        if angle > 1e-6:
+            axis = mean_rotation_vector / angle
+            w = torch.cos(angle / 2)
+            xyz = torch.sin(angle / 2) * axis
+            return torch.cat([w.unsqueeze(0), xyz])
+        else:
+            return torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
+
     @cached_property
     def state_origins(self) -> dict[StateIdent, torch.Tensor]:
         tpgmm: AutoTPGMM = self._policy.model
-        eulers = tpgmm.get_frame_origins_euler(self.reversed)[0]
-        quats = tpgmm.get_frame_origins_quats(self.reversed)[0]
+        if self.reversed:
+            poses = tpgmm.end_object_poses
+            scalars = tpgmm.end_object_scalars
+        else:
+            poses = tpgmm.start_object_poses
+            scalars = tpgmm.start_object_scalars
+        origins: dict[StateIdent, torch.Tensor] = {}
+        for key, value in poses.items():
+            # value shape: [N_demos, 7] where 7 = [x, y, z, qw, qx, qy, qz]
+            positions = value[:, :3]
+            quaternions = value[:, 3:]
+            mean_position = positions.mean(dim=0)
+            mean_quaternion = self.quaternion_mean_exp_map(quaternions)
+            origins[StateIdent(f"{key}_euler")] = mean_position
+            origins[StateIdent(f"{key}_quat")] = mean_quaternion
+        for key, value in scalars.items():
+            # value shape: [N_demos, 1]
+            mean_scalar = value.mean(dim=0)
+            origins[StateIdent(key)] = mean_scalar
+        return origins
 
-        return None
+    @cached_property
+    def state_task_parameters_values(self) -> dict[StateIdent, torch.Tensor]:
+        # NOTE: This acts as a filter for the task parameters
+        # It returns only those task parameters that are constant across all demonstrations
+        # It acts as a simplistic task parameter selection
+        tpgmm: AutoTPGMM = self._policy.model
+        if self.reversed:
+            states = tpgmm.end_object_scalars
+        else:
+            states = tpgmm.start_object_scalars
+        states_mean = {key: value.mean(dim=0) for key, value in states.items()}
+        states_max = {key: value.max(dim=0).values for key, value in states.items()}
+        states_min = {key: value.min(dim=0).values for key, value in states.items()}
+        states_std = {key: value.std(dim=0) for key, value in states.items()}
+        state_task_parameters: dict[StateIdent, torch.Tensor] = {}
+
+        # Define relative threshold for "constant" states (as percentage of data range)
+        relative_threshold = 0.05  # 5% of the data range
+
+        for key, value in states_mean.items():
+            # Calculate data range for each dimension
+            data_range = states_max[key] - states_min[key]
+            # Create threshold based on data range (with minimum threshold to avoid division issues)
+            threshold = relative_threshold * data_range
+            # If std is small relative to data range for ALL dimensions, assume constant state
+            if (states_std[key] < threshold).all():
+                state_task_parameters[StateIdent(key)] = value
+        return state_task_parameters
+
+    @cached_property
+    def tapas_task_parameters_values(self) -> dict[StateIdent, torch.Tensor]:
+        tpgmm: AutoTPGMM = self._policy.model
+        result: dict[StateIdent, torch.Tensor] = {}
+        for _, segment in enumerate(tpgmm.segment_frames):
+            for _, frame_idx in enumerate(segment):
+                state_str = tpgmm.frame_mapping[frame_idx]
+                result[StateIdent(state_str + "_euler")] = self.state_origins[
+                    StateIdent(state_str + "_euler")
+                ]
+                result[StateIdent(state_str + "_quat")] = self.state_origins[
+                    StateIdent(state_str + "_quat")
+                ]
+        return result
 
     @cached_property
     def task_parameters_values(self) -> dict[StateIdent, torch.Tensor]:
-        # TODO: add tapas taskparameter
-        return self.preconditions
-        result: dict[int, torch.Tensor] = {}
-        for _, segment in enumerate(tpgmm.segment_frames):
-            for _, frame_idx in enumerate(segment):
-                # TODO: torch and check for if quaternions are needed
-                transform_key, quaternion_key = State.get_tp_by_index(frame_idx)
-                result[transform_key] = positions[frame_idx]
-                result[quaternion_key] = quaternions[frame_idx]
-        for key, value in task.value.precondition.items():
-            result[key] = value
-        return result
+        return {
+            **self.state_task_parameters_values,
+            **self.tapas_task_parameters_values,
+        }
 
     @cached_property
-    def task_parameters(self) -> list[StateIdent]:
-        # TODO: add tapas taskparameter
-        return self.preconditions
-        result: dict[int, torch.Tensor] = {}
-        for _, segment in enumerate(tpgmm.segment_frames):
-            for _, frame_idx in enumerate(segment):
-                # TODO: torch and check for if quaternions are needed
-                transform_key, quaternion_key = State.get_tp_by_index(frame_idx)
-                result[transform_key] = positions[frame_idx]
-                result[quaternion_key] = quaternions[frame_idx]
-        for key, value in task.value.precondition.items():
-            result[key] = value
-        return result
+    def state_task_parameters(self) -> set[StateIdent]:
+        return set(self.state_task_parameters_values.keys())
+
+    @cached_property
+    def tapas_task_parameters(self) -> set[StateIdent]:
+        return set(self.tapas_task_parameters_values.keys())
+
+    @cached_property
+    def task_parameters(self) -> set[StateIdent]:
+        return set(self.state_task_parameters + self.tapas_task_parameters)
 
     def distances(
-        obs1: MasterObservation,
-        obs2: MasterObservation = None,
+        obs: MasterObservation,
         pad: bool = False,
     ) -> torch.Tensor:
         raise NotImplementedError()
@@ -275,12 +368,10 @@ class Task:
         task_tps = self.tps[task]
         for key, converter in self.converter.items():
             if key in task_tps:
-                val = converter.distance(obs1.states[key], task_tps[key])
+                val = converter.distance(obs.states[key], task_tps[key])
                 task_value = torch.tensor([val, 0.0]) if pad else torch.tensor(val)
             else:
-                val = self.distance_converter.distance(
-                    obs1.states[key], obs1.states[key]
-                )
+                val = self.distance_converter.distance(obs.states[key], obs.states[key])
                 task_value = torch.tensor([val, 1.0]) if pad else torch.tensor(val)
 
             task_features.append(task_value)

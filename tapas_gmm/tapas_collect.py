@@ -11,15 +11,14 @@ from tqdm.auto import tqdm
 
 from tapas_gmm.collect_data import Config
 from tapas_gmm.env import Environment
-from tapas_gmm.env.calvin import CalvinConfig, Calvin
+from tapas_gmm.env.calvin import Calvin
 
 from tapas_gmm.env.environment import BaseEnvironmentConfig
-from tapas_gmm.master_project.data.definitions import StateSpace, convert_to_states
-from tapas_gmm.master_project.sampler import SceneMaker, SamplerConfig
+from tapas_gmm.master_project.observation import make_tapas_format
+from tapas_gmm.master_project.sampler import SceneMaker
 from tapas_gmm.policy import PolicyEnum
 from tapas_gmm.policy.manual_policy import ManualCalvinPolicy
 from tapas_gmm.dataset.scene import SceneDataset, SceneDatasetConfig
-from tapas_gmm.master_project.observation import MasterObservation, tapas_format
 from tapas_gmm.utils.argparse import parse_and_build_config
 from tapas_gmm.utils.misc import (
     DataNamingConfig,
@@ -110,7 +109,7 @@ def main(config: Config) -> None:
                     ee_delta = env.compute_ee_delta(obs, next_obs)
                     obs.action = torch.Tensor(ee_delta)
                     obs.reward = torch.Tensor([step_reward])
-                    replay_memory.add_observation(tapas_format(obs))
+                    replay_memory.add_observation(make_tapas_format(obs))
 
                     obs = next_obs
                     timesteps += 1

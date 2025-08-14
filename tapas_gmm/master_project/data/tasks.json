@@ -1,212 +1,156 @@
 {
   "CloseDrawer": {
-    "space": "SMALL",
+    "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "DrawerDoClose",
-    "preconditions": {
-      "upper_bound": ["ee_state", "base__drawer"],
-      "lower_bound": []
-    },
-    "overrides": []
-  },
-  "OpenDrawer": {
-    "space": "SMALL",
-    "reversed": false,
-    "conditional": false,
-    "policy_path": "DrawerDoOpen",
-    "preconditions": {
-      "upper_bound": ["ee_state"],
-      "lower_bound": ["base__drawer"]
-    },
+    "policy_path": "DrawerClose",
     "overrides": []
   },
   "BackFromCloseDrawer": {
-    "space": "SMALL",
+    "space": "Minimal",
     "reversed": true,
     "conditional": false,
-    "policy_path": "DrawerDoClose",
-    "preconditions": {
-      "upper_bound": [],
-      "lower_bound": ["ee_state", "base__drawer"]
-    },
+    "policy_path": "DrawerClose",
+    "overrides": []
+  },
+  "OpenDrawer": {
+    "space": "Minimal",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "DrawerOpen",
     "overrides": []
   },
   "BackFromOpenDrawer": {
-    "space": "SMALL",
+    "space": "Minimal",
     "reversed": true,
     "conditional": false,
-    "policy_path": "DrawerDoOpen",
-    "preconditions": {
-      "upper_bound": ["base__drawer"],
-      "lower_bound": ["ee_state"]
-    },
+    "policy_path": "DrawerOpen",
     "overrides": []
   },
   "PressButton": {
-    "space": "SMALL",
+    "space": "Minimal",
     "reversed": false,
     "conditional": false,
     "policy_path": "ButtonPress",
-    "preconditions": {
-      "upper_bound": ["ee_state"],
-      "lower_bound": []
-    },
     "overrides": []
   },
   "BackFromPressButton": {
-    "space": "SMALL",
+    "space": "Minimal",
     "reversed": true,
     "conditional": false,
     "policy_path": "ButtonPress",
-    "preconditions": {
-      "upper_bound": [],
-      "lower_bound": ["ee_state"]
-    },
     "overrides": []
   },
-  "MoveSliderToLeft": {
-    "space": "SMALL",
+  "SliderToLeft": {
+    "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "SliderLeftDoOpen",
-    "preconditions": {
-      "upper_bound": ["slide_state"],
-      "lower_bound": ["ee_state"]
-    }
+    "policy_path": "SliderToLeft",
+    "overrides": []
   },
-  "MoveSliderToRight": {
-    "space": "SMALL",
+  "SliderToRight": {
+    "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "SliderRightDoOpen",
-    "preconditions": {
-      "upper_bound": [],
-      "lower_bound": ["ee_state", "slide_state"]
-    }
+    "policy_path": "SliderToRight",
+    "overrides": []
   },
-  "BackFromMoveSliderToLeft": {
-    "space": "SMALL",
+  "BackFromSliderToLeft": {
+    "space": "Minimal",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "BackFromSliderToLeft",
+    "overrides": []
+  },
+  "BackFromSliderToRight": {
+    "space": "Minimal",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "BackFromSliderToRight",
+    "overrides": []
+  },
+  "GrabRedBlockTable": {
+    "space": "All",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "GrabRedBlockTable",
+    "overrides": []
+  },
+  "GrabPinkBlockTable": {
+    "space": "All",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "GrabPinkBlockTable",
+    "overrides": []
+  },
+  "GrabBlueBlockTable": {
+    "space": "All",
+    "reversed": false,
+    "conditional": false,
+    "policy_path": "GrabBlueBlockTable",
+    "overrides": []
+  },
+  "GrabRedBlockDrawer": {
+    "space": "All",
+    "reversed": false,
+    "conditional": true,
+    "policy_path": "GrabRedBlockDrawer",
+    "overrides": []
+  },
+  "GrabPinkBlockDrawer": {
+    "space": "All",
+    "reversed": false,
+    "conditional": true,
+    "policy_path": "GrabPinkBlockDrawer",
+    "overrides": []
+  },
+  "GrabBlueBlockDrawer": {
+    "space": "All",
+    "reversed": false,
+    "conditional": true,
+    "policy_path": "GrabBlueBlockDrawer",
+    "overrides": []
+  },
+  "PlaceRedBlockTable": {
+    "space": "All",
     "reversed": true,
     "conditional": false,
-    "policy_path": "SliderLeftDoOpen",
-    "preconditions": {
-      "upper_bound": [],
-      "lower_bound": ["ee_state", "slide_state"]
-    }
+    "policy_path": "GrabRedBlockTable",
+    "overrides": []
   },
-  "BackFromMoveSliderToRight": {
-    "space": "SMALL",
+  "PlacePinkBlockTable": {
+    "space": "All",
     "reversed": true,
     "conditional": false,
-    "policy_path": "SliderRightMoveTo",
-    "preconditions": {
-      "upper_bound": ["slide_state"],
-      "lower_bound": ["ee_state"]
-    }
+    "policy_path": "GrabPinkBlockTable",
+    "overrides": []
   },
-  "BlockTableRed": {
-    "precondition": {
-      "EE_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
+  "PlaceBlueBlockTable": {
+    "space": "All",
+    "reversed": true,
+    "conditional": false,
+    "policy_path": "GrabBlueBlockTable",
+    "overrides": []
   },
-  "BlockTablePink": {
-    "precondition": {
-      "EE_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
+  "PlaceRedBlockDrawer": {
+    "space": "All",
+    "reversed": true,
+    "conditional": true,
+    "policy_path": "GrabRedBlockDrawer",
+    "overrides": []
   },
-  "BlockTableBlue": {
-    "precondition": {
-      "EE_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
+  "PlacePinkBlockDrawer": {
+    "space": "All",
+    "reversed": true,
+    "conditional": true,
+    "policy_path": "GrabPinkBlockDrawer",
+    "overrides": []
   },
-  "BlockTableRedReversed": {
-    "precondition": {
-      "EE_State": 0
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockTablePinkReversed": {
-    "precondition": {
-      "EE_State": 0
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockTableBlueReversed": {
-    "precondition": {
-      "EE_State": 0
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockDrawerRed": {
-    "precondition": {
-      "EE_State": 1,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
-  },
-  "BlockDrawerPink": {
-    "precondition": {
-      "EE_State": 1,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
-  },
-  "BlockDrawerBlue": {
-    "precondition": {
-      "EE_State": 1,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": false
-  },
-  "BlockDrawerRedReversed": {
-    "precondition": {
-      "EE_State": 0,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockDrawerPinkReversed": {
-    "precondition": {
-      "EE_State": 0,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockDrawerBlueReversed": {
-    "precondition": {
-      "EE_State": 0,
-      "Drawer_State": 1
-    },
-    "space": "ALL",
-    "reversed": true
-  },
-  "BlockMoveTo": {
-    "precondition": {
-      "EE_State": 0
-    },
-    "space": "ALL",
-    "reversed": false
-  },
-  "BlockMoveToReversed": {
-    "precondition": {
-      "EE_State": 0
-    },
-    "space": "ALL",
-    "reversed": true
+  "PlaceBlueBlockDrawer": {
+    "space": "All",
+    "reversed": true,
+    "conditional": true,
+    "policy_path": "GrabBlueBlockDrawer",
+    "overrides": []
   }
 }
