@@ -115,7 +115,7 @@ class SceneMaker:
         for state in self.states:
             if state.type is StateType.Scalar:
                 scene_dict[state.ident] = self._sample_from_values(
-                    [state.lower_bound, state.upper_bound]
+                    [state.lower_bound.item(), state.upper_bound.item()]
                 )
             elif state.type is StateType.Euler or state.type is StateType.Quat:
                 pass  # NOTE: Euler and Quat states are not sampled here, they are set directly
@@ -124,6 +124,8 @@ class SceneMaker:
 
         if StateIdent.Button_State in scene_dict:
             scene_dict[StateIdent.Led_State] = scene_dict[StateIdent.Button_State]
+        if StateIdent.Switch_State in scene_dict:
+            scene_dict[StateIdent.Lightbulb_State] = scene_dict[StateIdent.Switch_State]
 
         return self._update_scene_obs(scene_dict, scene_obs)
 

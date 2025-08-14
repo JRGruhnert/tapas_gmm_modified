@@ -1,4 +1,3 @@
-import argparse
 import pathlib
 import time
 from dataclasses import dataclass
@@ -14,7 +13,8 @@ from tapas_gmm.env import Environment
 from tapas_gmm.env.calvin import Calvin
 
 from tapas_gmm.env.environment import BaseEnvironmentConfig
-from tapas_gmm.master_project.observation import make_tapas_format
+from tapas_gmm.master_project.state import State, StateSpace
+from tapas_gmm.master_project.tapas_conversion import make_tapas_format
 from tapas_gmm.master_project.sampler import SceneMaker
 from tapas_gmm.policy import PolicyEnum
 from tapas_gmm.policy.manual_policy import ManualCalvinPolicy
@@ -54,8 +54,8 @@ def main(config: Config) -> None:
     env = Calvin(config=config.env_config, eval=False, vis=False, real_time=False)
     keyboard_obs = KeyboardObserver()
     policy = ManualCalvinPolicy(config, env, keyboard_obs)
-    states = convert_to_states(StateSpace.ALL)
-    sampler = SceneMaker(SamplerConfig(), states)
+    states = State.from_json_list(StateSpace.All)
+    sampler = SceneMaker(states)
     assert config.data_naming.data_root is not None
 
     save_path = pathlib.Path(config.data_naming.data_root) / config.task

@@ -4,7 +4,6 @@ import json
 import pathlib
 from loguru import logger
 import torch
-from build.lib.conf.policy.models import tpgmm
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.state import StateBound, StateIdent
 from tapas_gmm.policy.policy import Policy
