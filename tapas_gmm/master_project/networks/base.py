@@ -40,17 +40,17 @@ class ActorCriticBase(nn.Module, ABC):
         self.dim_encoder = 32
         self.encoder_obs = nn.ModuleDict(
             {
-                StateType.Euler.name: EulerEncoder(self.dim_encoder),
-                StateType.Quat.name: QuaternionEncoder(self.dim_encoder),
-                StateType.Scalar.name: ScalarEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: EulerEncoder(self.dim_encoder),
+                StateType.Rot.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Range.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
         self.encoder_goal = nn.ModuleDict(
             {
-                StateType.Euler.name: EulerEncoder(self.dim_encoder),
-                StateType.Quat.name: QuaternionEncoder(self.dim_encoder),
-                StateType.Scalar.name: ScalarEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: EulerEncoder(self.dim_encoder),
+                StateType.Rot.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Range.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
@@ -114,7 +114,7 @@ class ActorCriticBase(nn.Module, ABC):
     ) -> dict[StateType, torch.Tensor]:
         grouped = {t: [] for t in StateType}
         for state in self.states:
-            value = state.value(obs.states[state.ident])
+            value = state.value(obs.states[state.name])
             grouped[state.type].append(value)
         return {
             t: torch.stack(vals).float()
@@ -129,9 +129,7 @@ class ActorCriticBase(nn.Module, ABC):
     ) -> dict[StateType, torch.Tensor]:
         grouped = {t: [] for t in StateType}
         for state in self.states:
-            distance = state.distance(
-                obs1.states[state.ident], obs2.states[state.ident]
-            )
+            distance = state.distance(obs1.states[state.name], obs2.states[state.name])
             grouped[state.type].append(distance)
         return {
             t: torch.stack(vals).float()
@@ -162,6 +160,15 @@ class BaselineBase(ActorCriticBase):
 
 
 class GnnBase(ActorCriticBase, ABC):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        for task in self.tasks:
+            task.initialize_task_parameters(self.states)
+
     @abstractmethod
     def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
         pass
@@ -194,11 +201,12 @@ class GnnBase(ActorCriticBase, ABC):
     def task_state_distances(
         self,
         obs: MasterObservation,
+        goal: MasterObservation,
         pad: bool = False,
     ) -> torch.Tensor:
         features: list[torch.Tensor] = []
         for task in self.tasks:
-            distances = task.distances(obs, pad)
+            distances = task.distances(obs, goal, self.states, pad)
             features.append(distances)
         return torch.stack(features, dim=0).float()
 
@@ -238,9 +246,8 @@ class GnnBase(ActorCriticBase, ABC):
     def state_task_sparse(self) -> torch.Tensor:
         edge_list = []
         for task_idx, task in enumerate(self.tasks):
-            tp = task.task_parameters
             for state_idx, state in enumerate(self.states):
-                if state.ident in tp:
+                if state.name in task.task_parameters_keys:
                     edge_list.append((state_idx, task_idx))
         return torch.tensor(edge_list, dtype=torch.long).t()
 

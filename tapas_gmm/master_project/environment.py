@@ -8,13 +8,11 @@ from calvin_env.envs.observation import CalvinObservation
 from tapas_gmm.env.calvin import Calvin, CalvinConfig
 from tapas_gmm.master_project.state import (
     State,
-    StateIdent,
     StateSuccess,
     StateType,
 )
 from tapas_gmm.master_project.task import Task
 from tapas_gmm.master_project.observation import MasterObservation
-from tapas_gmm.master_project.sampler import SceneMaker
 from tapas_gmm.utils.observation import (
     CameraOrder,
     SceneObservation,
@@ -51,7 +49,6 @@ class MasterEnv:
         self.states = states
         self.env = Calvin(config=config.calvin_config)
 
-        self.scene_maker = SceneMaker(self.env.surfaces, states)
         self.last_gripper_action = [1.0]  # open
         self.max_steps = 20  # TODO: Change
         self.steps_left = self.max_steps
@@ -166,7 +163,7 @@ class MasterEnv:
             if not goal_reached:
                 break  # Early exit if goal is already not reached
             if state.success == StateSuccess.Area:
-                if state.type is not StateType.Euler:
+                if state.type is not StateType.Euler_Angle:
                     raise ValueError(
                         f"State type {state.type} doesn't support area based evaluation."
                     )
@@ -174,9 +171,10 @@ class MasterEnv:
                     self.current.states[state], self.goal.states[state]
                 )
             elif state.success == StateSuccess.Precise:
+                # TODO: this is not correct for bool states
                 goal_reached = (
                     state.distance(
-                        self.current.states[state.ident], self.goal.states[state.ident]
+                        self.current.states[state.name], self.goal.states[state.name]
                     ).item()
                     > self.config.precise_success_threshold
                 )
@@ -252,20 +250,20 @@ class MasterEnv:
         object_poses_dict = obs.object_poses
         # Changing Taskparameter for reverse models
         if task is not None and goal is not None and task.reversed:
-            for state_ident in task.overwrites:
-                if state_ident is StateIdent.EE_State:
+            for state_name in task.overrides:
+                if state_name is "ee":
                     ee_pose = torch.cat(
                         [
-                            task.state_origins[StateIdent.EE_Euler],
-                            task.state_origins[StateIdent.EE_Quat],
+                            task.task_parameters[f"{state_name}_position"],
+                            task.task_parameters[f"{state_name}_rotation"],
                         ]
                     )
-                    ee_state = torch.Tensor([task.state_origins[StateIdent.EE_State]])
+                    ee_state = task.task_parameters[f"{state_name}_scalar"]
                 else:
-                    object_poses_dict[state_ident.value] = torch.cat(
+                    object_poses_dict[state_name] = torch.cat(
                         [
-                            goal.states[StateIdent(f"{state_ident.value}_euler")],
-                            goal.states[StateIdent(f"{state_ident.value}_quat")],
+                            goal.states[f"{state_name}_position"],
+                            goal.states[f"{state_name}_rotation"],
                         ]
                     )
 

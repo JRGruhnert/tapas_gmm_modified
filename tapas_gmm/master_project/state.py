@@ -12,73 +12,37 @@ class StateSpace(Enum):
 
 
 class StateType(Enum):
-    Euler = "Euler"
-    Quat = "Quat"
-    Scalar = "Scalar"
-    Bool = "Bool"
-
-
-class StateBound(Enum):
-    Lower = "lower_bound"
-    Upper = "upper_bound"
+    Euler_Angle = "Euler"
+    Axis_Angle = "Axis"
+    Quaternion = "Quaternion"
+    Range = "Range"
+    Boolean = "Boolean"
+    Flip = "Flip"  # Special type for flipping the state, e.g., for boolean states
 
 
 class StateSuccess(Enum):
-    Area = "Area"  # Has to be in area
+    Area = "Area"  # Has to be in the same area
     Precise = "Precise"  # Has to be precise (with threshold)
     Ignore = "Ignore"  # Is not used in Success calculation
-
-
-class StateIdent(Enum):
-    EE_Euler = "ee_euler"
-    EE_Quat = "ee_quat"
-    EE_State = "ee"
-    Slide_Euler = "base__slide_euler"
-    Slide_Quat = "base__slide_quat"
-    Slide_State = "base__slide"
-    Drawer_Euler = "base__drawer_euler"
-    Drawer_Quat = "base__drawer_quat"
-    Drawer_State = "base__drawer"
-    Button_Euler = "base__button_euler"
-    Button_Quat = "base__button_quat"
-    Button_State = "base__button"
-    Led_Euler = "led_euler"
-    Led_Quat = "led_quat"
-    Led_State = "led"
-    Block_Red_Euler = "block_red_euler"
-    Block_Red_Quat = "block_red_quat"
-    Block_Red_State = "block_red"
-    Block_Blue_Euler = "block_blue_euler"
-    Block_Blue_Quat = "block_blue_quat"
-    Block_Blue_State = "block_blue"
-    Block_Pink_Euler = "block_pink_euler"
-    Block_Pink_Quat = "block_pink_quat"
-    Block_Pink_State = "block_pink"
-    Switch_Euler = "base__switch_euler"  # UNUSED CAUSE NOT ABLE TO RECORD
-    Switch_Quat = "base__switch_quat"  # UNUSED CAUSE NOT ABLE TO RECORD
-    Switch_State = "base__switch"  # UNUSED CAUSE NOT ABLE TO RECORD
-    Lightbulb_Euler = "lightbulb_euler"  # UNUSED CAUSE NOT ABLE TO RECORD
-    Lightbulb_Quat = "lightbulb_quat"  # UNUSED CAUSE NOT ABLE TO RECORD
-    Lightbulb_State = "lightbulb"  # UNUSED CAUSE NOT ABLE TO RECORD
 
 
 class State:
     def __init__(
         self,
-        ident: StateIdent,
+        name: str,
         type: StateType,
         success: StateSuccess,
         lower_bound: torch.Tensor,
         upper_bound: torch.Tensor,
     ):
-        self._ident = ident
+        self._name = name
         self._type = type
         self._success = success
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
 
     @classmethod
-    def from_json(cls, ident_value: str, json_data: dict) -> "State":
+    def from_json(cls, name: str, json_data: dict) -> "State":
         """Create a State instance from JSON data"""
         if (
             "type" not in json_data
@@ -87,18 +51,25 @@ class State:
             or "lower_bound" not in json_data
             or "upper_bound" not in json_data
         ):
-            raise ValueError(f"Invalid JSON data for State {ident_value}")
+            raise ValueError(f"Invalid JSON data for State {name}")
         if not isinstance(json_data["lower_bound"], list):
-            raise ValueError(f"Invalid JSON data for State {ident_value}")
+            raise ValueError(f"Invalid JSON data for State {name}")
         if not isinstance(json_data["upper_bound"], list):
-            raise ValueError(f"Invalid JSON data for State {ident_value}")
-        return cls(
-            ident=StateIdent(ident_value),
-            type=StateType(json_data["type"]),
-            success=StateSuccess(json_data["success"]),
-            lower_bound=torch.tensor(json_data["lower_bound"], dtype=torch.float32),
-            upper_bound=torch.tensor(json_data["upper_bound"], dtype=torch.float32),
-        )
+            raise ValueError(f"Invalid JSON data for State {name}")
+
+        state_type = StateType(json_data["type"])
+        # sub_type = StateSubType(json_data["sub_type"])
+
+        # Prepare common arguments for all state types
+        common_args = {
+            "name": name,
+            "type": state_type,
+            "success": StateSuccess(json_data["success"]),
+            "lower_bound": torch.tensor(json_data["lower_bound"], dtype=torch.float32),
+            "upper_bound": torch.tensor(json_data["upper_bound"], dtype=torch.float32),
+        }
+        # Default implementation for base class or when called directly on subclasses
+        return cls(**common_args)
 
     @classmethod
     def from_json_list(cls, state_space: StateSpace) -> List["State"]:
@@ -144,9 +115,9 @@ class State:
         return filtered_states
 
     @property
-    def ident(self) -> StateIdent:
+    def name(self) -> str:
         """Returns the StateIdent of the state."""
-        return self._ident
+        return self._name
 
     @property
     def type(self) -> StateType:
@@ -168,13 +139,11 @@ class State:
         """Returns the upper bound of the state."""
         return self._upper_bound
 
-    def get_state_bounds(self, bound: StateBound) -> torch.Tensor:
-        if bound == StateBound.Lower:
-            return self.lower_bound
-        elif bound == StateBound.Upper:
-            return self.upper_bound
-        else:
-            raise ValueError(f"Unknown state bound: {bound}")
+    @property
+    def relative_threshold(self) -> torch.Tensor:
+        """Returns the relative threshold for the state."""
+        # Calculate the relative threshold as 5% of the range
+        return 0.05 * (self.upper_bound - self.lower_bound)
 
     def normalize(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -182,57 +151,155 @@ class State:
         """
         return (x - self.lower_bound) / (self.upper_bound - self.lower_bound)
 
-    def normalize_quat(self, q: torch.Tensor) -> torch.Tensor:
-        return q / torch.norm(q)
+    def normalize_quat(self, x: torch.Tensor) -> torch.Tensor:
+        x = x / torch.norm(x)
+        if x[3] < 0:
+            return -x
+        return x
 
-    def canonicalize_quat(self, q: torch.Tensor) -> torch.Tensor:
+    def quaternion_mean(self, quaternions: torch.Tensor) -> torch.Tensor:
         """
-        Enforce qw >= 0 by flipping sign if needed.
-        q is assumed unit‑length.
+        Computes the mean quaternion using the eigenvector method.
+        quaternions: tensor of shape [N, 4] (x, y, z, w)
+        Returns: mean quaternion [4] in (x, y, z, w) format
         """
-        # quaternion format [qx, qy, qz, qw]
-        if q[3] < 0:
-            return -q
-        return q
-
-    def clamp(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Clamp a value x to the range defined by lower_bound and upper_bound.
-        """
-        return torch.clamp(x, self.lower_bound, self.upper_bound)
+        # Swap to (w, x, y, z) for computation
+        quats = quaternions[:, [3, 0, 1, 2]]
+        quats = quats / quats.norm(dim=1, keepdim=True)
+        A = quats.t() @ quats
+        eigenvalues, eigenvectors = torch.linalg.eigh(A)
+        mean_quat = eigenvectors[:, -1]
+        # Ensure positive scalar part
+        if mean_quat[0] < 0:
+            mean_quat = -mean_quat
+        # Swap back to (x, y, z, w)
+        mean_quat_xyzw = mean_quat[[1, 2, 3, 0]]
+        return mean_quat_xyzw
 
     def value(self, x: torch.Tensor) -> torch.Tensor:
         """Returns the value of the state as a tensor."""
-        if self.type == StateType.Euler:
-            cx = self.clamp(x)
-            return self.normalize(cx)
-        elif self.type == StateType.Quat:
-            nx = self.normalize_quat(x)
-            return self.canonicalize_quat(nx)
-        elif self.type == StateType.Scalar:
-            nx = self.clamp(x)
-            return self.normalize(nx)
+        if (
+            self.type == StateType.Euler_Angle
+            or self.type == StateType.Axis_Angle
+            or self.type == StateType.Range
+        ):
+            return self.normalize(x)
+        elif self.type == StateType.Quaternion:
+            return self.normalize_quat(x)
+        elif self.type == StateType.Boolean or self.type == StateType.Flip:
+            # No need to normalize or clamp boolean states
+            # as they are already in {0, 1} range.
+            return x
+        else:
+            raise NotImplementedError(
+                f"Type {self.type} is not implemented yet. Please implement the value method for {self.type} type."
+            )
+
+    def distance(
+        self,
+        current: torch.Tensor,
+        tp: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
+            nx = self.normalize(current)
+            ny = self.normalize(tp)
+            return torch.linalg.vector_norm(nx - ny)
+        elif self.type == StateType.Quaternion:
+            nx = self.normalize_quat(current)
+            ny = self.normalize_quat(tp)
+            dot = torch.clamp(torch.abs(torch.dot(nx, ny)), -1.0, 1.0)
+            return 2.0 * torch.arccos(dot)
+        elif self.type == StateType.Range:
+            nx = self.normalize(current)
+            ny = self.normalize(tp)
+            return torch.abs(nx - ny)
+        elif self.type == StateType.Boolean:
+            return torch.abs(current - tp)
+        elif self.type == StateType.Flip:
+            return tp - torch.abs(current - goal)  # Flips distance
         else:
             raise ValueError(f"Unknown state type: {self.type}")
 
-    def distance(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Returns the distance of the state as a tensor."""
-        if self.type == StateType.Euler:
-            cx = self.clamp(x)
-            cy = self.clamp(y)
-            nx = self.normalize(cx)
-            ny = self.normalize(cy)
-            return torch.norm(nx - ny)
-        elif self.type == StateType.Quat:
-            cx = self.normalize_quat(x)
-            cy = self.normalize_quat(y)
-            dot = torch.clamp(torch.abs(torch.dot(cx, cy)), -1.0, 1.0)
-            return 2.0 * torch.arccos(dot)
-        elif self.type == StateType.Scalar:
-            cx = self.clamp(x)
-            cy = self.clamp(y)
-            nx = self.normalize(cx)
-            ny = self.normalize(cy)
-            return torch.abs(nx - ny)
+    def as_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        object_tps: list[str],
+    ) -> tuple[bool, torch.Tensor]:
+        """Returns the mean of the given tensor values."""
+        if self.name not in object_tps:
+            return False, None  # Ignore if not in object_tps
+        if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
+            if reversed:
+                return True, end.mean(dim=0)
+            return True, start.mean(dim=0)
+        elif self.type == StateType.Quaternion:
+            if reversed:
+                return True, self.quaternion_mean(end)
+            return True, self.quaternion_mean(start)
+        elif self.type == StateType.Range:
+            if reversed:
+                std = end.std(dim=0)
+                if (std < self.relative_threshold).all():
+                    return True, end.mean(dim=0)
+            else:
+                std = start.std(dim=0)
+                if (std < self.relative_threshold).all():
+                    return True, start.mean(dim=0)
+            return False, None  # Not constant enough
+        elif self.type == StateType.Boolean:
+            if reversed:
+                std = end.std(dim=0)
+                if (std == 0).all():
+                    return True, end.mean(dim=0)
+            else:
+                std = start.std(dim=0)
+                if (std == 0).all():
+                    return True, start.mean(dim=0)
+            return False, None  # Not constant enough
+        elif self.type == StateType.Flip:
+            # Check if end is always the opposite of start
+            if (end == (1 - start)).all(dim=0).all():
+                return True, torch.tensor([1.0])  # Flip state
+            return False, None
         else:
             raise ValueError(f"Unknown state type: {self.type}")
+
+    def rotation_mean_exp_map(self, rotations: torch.Tensor) -> torch.Tensor:
+        """
+        rotations: tensor of shape [N, 4] where each row is [w, x, y, z]
+        """
+        # Convert rotations to rotation vectors (axis-angle representation)
+        rotation_vectors = []
+
+        for q in rotations:
+            # Normalize rotation quaternion
+            q = q / torch.norm(q)
+
+            # Extract angle and axis
+            w, x, y, z = q
+            angle = 2 * torch.acos(torch.abs(w))
+
+            if torch.sin(angle / 2) > 1e-6:
+                axis = torch.tensor([x, y, z]) / torch.sin(angle / 2)
+                rotation_vector = angle * axis
+            else:
+                rotation_vector = torch.zeros(3)
+
+            rotation_vectors.append(rotation_vector)
+
+        # Average the rotation vectors
+        mean_rotation_vector = torch.stack(rotation_vectors).mean(dim=0)
+
+        # Convert back to quaternion
+        angle = torch.norm(mean_rotation_vector)
+        if angle > 1e-6:
+            axis = mean_rotation_vector / angle
+            w = torch.cos(angle / 2)
+            xyz = torch.sin(angle / 2) * axis
+            return torch.cat([w.unsqueeze(0), xyz])
+        else:
+            return torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion

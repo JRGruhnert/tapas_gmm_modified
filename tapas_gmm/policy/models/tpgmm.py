@@ -4220,7 +4220,7 @@ class AutoTPGMM(TPGMM):
         self.segment_frame_views = ckpt.segment_frame_views
 
     @property
-    def frame_mapping(self) -> list[str]:
+    def frame_mapping(self) -> list[tuple[str, str]]:
         """
         Get the mapping of frame names to their indices in the model.
         Returns a dictionary with frame names as keys and their indices as values.
@@ -4231,32 +4231,60 @@ class AutoTPGMM(TPGMM):
         return self._demos.frame_map
 
     @property
-    def start_object_poses(self) -> dict[str, torch.Tensor]:
+    def start_object_positions(self) -> dict[str, torch.Tensor]:
         """
-        Get the start poses of the model. Returns a dictionary with frame names as keys
-        and the start poses as values.
+        Get the start positions of the model. Returns a dictionary with frame names as keys
+        and the start positions as values.
         """
         if self._demos is None:
             raise RuntimeError("Model not fitted yet.")
 
-        if not hasattr(self._demos, "start_poses"):
+        if not hasattr(self._demos, "start_positions"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.start_object_poses
+        return self._demos.start_object_positions
 
     @property
-    def end_object_poses(self) -> dict[str, torch.Tensor]:
+    def end_object_positions(self) -> dict[str, torch.Tensor]:
         """
-        Get the end poses of the model. Returns a dictionary with frame names as keys
-        and the end poses as values.
+        Get the end positions of the model. Returns a dictionary with frame names as keys
+        and the end positions as values.
         """
         if self._demos is None:
             raise RuntimeError("Model not fitted yet.")
 
-        if not hasattr(self._demos, "end_poses"):
+        if not hasattr(self._demos, "end_positions"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.end_object_poses
+        return self._demos.end_object_positions
+
+    @property
+    def start_object_rotations(self) -> dict[str, torch.Tensor]:
+        """
+        Get the start rotations of the model. Returns a dictionary with frame names as keys
+        and the start rotations as values.
+        """
+        if self._demos is None:
+            raise RuntimeError("Model not fitted yet.")
+
+        if not hasattr(self._demos, "start_rotations"):
+            raise RuntimeError("Demos version is too old.")
+
+        return self._demos.start_object_rotations
+
+    @property
+    def end_object_rotations(self) -> dict[str, torch.Tensor]:
+        """
+        Get the end rotations of the model. Returns a dictionary with frame names as keys
+        and the end rotations as values.
+        """
+        if self._demos is None:
+            raise RuntimeError("Model not fitted yet.")
+
+        if not hasattr(self._demos, "end_rotations"):
+            raise RuntimeError("Demos version is too old.")
+
+        return self._demos.end_object_rotations
 
     @property
     def start_object_scalars(self) -> dict[str, torch.Tensor]:
@@ -4270,7 +4298,7 @@ class AutoTPGMM(TPGMM):
         if not hasattr(self._demos, "start_states"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.start_object_states
+        return self._demos.start_object_scalars
 
     @property
     def end_object_scalars(self) -> dict[str, torch.Tensor]:
@@ -4284,7 +4312,7 @@ class AutoTPGMM(TPGMM):
         if not hasattr(self._demos, "end_states"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.end_object_states
+        return self._demos.end_object_scalars
 
 
 def _get_rbd_manifolds_per_frame(position_only: bool, add_action_dim: bool) -> int:

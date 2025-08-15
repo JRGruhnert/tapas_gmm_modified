@@ -3,29 +3,24 @@ import time
 from dataclasses import dataclass
 from typing import Any
 import numpy as np
-from omegaconf import MISSING, DictConfig, OmegaConf, SCMode
-import torch
+from omegaconf import DictConfig, OmegaConf, SCMode
 from loguru import logger
 from tqdm.auto import tqdm
 
 from tapas_gmm.collect_data import Config
-from tapas_gmm.env import Environment
-
-from tapas_gmm.env.environment import BaseEnvironmentConfig
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
 from tapas_gmm.master_project.state import State, StateSpace
-from tapas_gmm.master_project.task import Task, TaskSpace
+from tapas_gmm.master_project.task import TaskSpace
 from tapas_gmm.policy import PolicyEnum
 from tapas_gmm.policy.manual import ManualPolicy
 from tapas_gmm.dataset.scene import SceneDataset, SceneDatasetConfig
+from tapas_gmm.utils.keyboard_observer import KeyboardObserver
 from tapas_gmm.utils.argparse import parse_and_build_config
 from tapas_gmm.utils.misc import (
     DataNamingConfig,
     get_dataset_name,
     loop_sleep,
 )
-
-from tapas_gmm.utils.keyboard_observer import KeyboardObserver
 
 
 @dataclass
@@ -90,7 +85,6 @@ def main(config: Config) -> None:
                     ebar.set_description("Running episode")
                     start_time = time.time()
 
-                    # print(obs.ee_pose)
                     prediction, policy_done, policy_success = policy.predict(
                         obs,
                         True,

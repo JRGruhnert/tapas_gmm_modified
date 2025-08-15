@@ -678,28 +678,28 @@ class Demos:
         return self._frame_map
 
     @property
-    def start_object_poses(self) -> dict[str, torch.Tensor]:
+    def start_object_positions(self) -> dict[str, torch.Tensor]:
         """
         Get the initial object poses.
         """
         return self._start_object_poses
 
     @property
-    def end_object_poses(self) -> dict[str, torch.Tensor]:
+    def end_object_positions(self) -> dict[str, torch.Tensor]:
         """
         Get the final object poses.
         """
         return self._end_object_poses
 
     @property
-    def start_object_states(self) -> dict[str, torch.Tensor]:
+    def start_object_scalars(self) -> dict[str, torch.Tensor]:
         """
         Get the initial object states.
         """
         return self._start_object_states
 
     @property
-    def end_object_states(self) -> dict[str, torch.Tensor]:
+    def end_object_scalars(self) -> dict[str, torch.Tensor]:
         """
         Get the final object states.
         """

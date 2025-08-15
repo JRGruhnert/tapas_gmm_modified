@@ -8,8 +8,8 @@ from tapas_gmm.master_project.networks import NetworkType, import_network
 from tapas_gmm.utils.select_gpu import device
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.networks.base import ActorCriticBase
-from tapas_gmm.master_project.state import State, StateIdent
-from tapas_gmm.master_project.task import Task, TaskIdent
+from tapas_gmm.master_project.state import State
+from tapas_gmm.master_project.task import Task
 
 
 @dataclass
