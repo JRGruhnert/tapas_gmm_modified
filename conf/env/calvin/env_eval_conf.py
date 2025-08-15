@@ -3,7 +3,7 @@ from omegaconf import MISSING
 from tapas_gmm.env.calvin import CalvinConfig
 
 calvin_env_config = CalvinConfig(
-    task=MISSING,
+    task="Undefined",
     cameras=("wrist", "front"),
     camera_pose={},
     image_size=(256, 256),
@@ -13,4 +13,7 @@ calvin_env_config = CalvinConfig(
     delay_gripper=False,
     gripper_plot=False,
     postprocess_actions=False,
+    eval_mode=False,
+    pybullet_vis=False,
+    real_time=False,
 )

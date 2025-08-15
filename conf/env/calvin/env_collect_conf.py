@@ -13,4 +13,7 @@ calvin_env_config = CalvinConfig(
     delay_gripper=False,
     gripper_plot=False,
     postprocess_actions=True,
+    eval_mode=False,
+    pybullet_vis=False,
+    real_time=False,
 )

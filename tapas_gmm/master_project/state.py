@@ -15,6 +15,7 @@ class StateType(Enum):
     Euler = "Euler"
     Quat = "Quat"
     Scalar = "Scalar"
+    Bool = "Bool"
 
 
 class StateBound(Enum):

@@ -1,9 +1,10 @@
 from omegaconf import MISSING
 from conf._machine import data_naming_config
 from conf.dataset.scene.calvin import scene_dataset_config
-from conf.env.calvin.env_collect_conf import calvin_env_config
+from conf.master.shared.collect_env import collect_env
 from tapas_gmm.tapas_collect import Config
-from tapas_gmm.env import Environment
+from tapas_gmm.master_project.state import StateSpace
+from tapas_gmm.master_project.task import TaskSpace
 from tapas_gmm.policy import PolicyEnum
 
 config = Config(
@@ -12,8 +13,9 @@ config = Config(
     sequence_len=None,
     data_naming=data_naming_config,
     dataset_config=scene_dataset_config,
-    env=Environment.CALVIN,
-    env_config=calvin_env_config,
+    env=collect_env,
+    state_space=StateSpace.All,
+    task_space=TaskSpace.All,
     policy_type=PolicyEnum.MANUAL,
     policy=None,
 )

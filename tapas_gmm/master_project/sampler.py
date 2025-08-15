@@ -1,13 +1,13 @@
 import itertools
 import random
-from typing import Dict
 import numpy as np
 
 from tapas_gmm.master_project.state import State, StateIdent, StateType
 
 
 class SceneMaker:
-    def __init__(self, states: list[State]):
+    def __init__(self, surfaces: dict[str, np.ndarray], states: list[State]):
+        self.surfaces = surfaces
         self.states = states
 
     def make(self, scene_obs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -50,7 +50,7 @@ class SceneMaker:
         return door_info, button_info, switch_info, light_info, obj_info
 
     def _update_scene_obs(
-        self, scene_dict: Dict[StateIdent, np.ndarray | float], scene_obs: np.ndarray
+        self, scene_dict: dict[StateIdent, np.ndarray | float], scene_obs: np.ndarray
     ) -> np.ndarray:
         """Return state information of the doors, drawers and shelves."""
         door_states, button_states, switch_states, light_states, object_poses = (
@@ -111,7 +111,7 @@ class SceneMaker:
         )
 
     def _sample_pre_condition(self, scene_obs: np.ndarray) -> np.ndarray:
-        scene_dict: Dict[StateIdent, np.ndarray | float] = {}
+        scene_dict: dict[StateIdent, np.ndarray | float] = {}
         for state in self.states:
             if state.type is StateType.Scalar:
                 scene_dict[state.ident] = self._sample_from_values(

@@ -1,5 +1,5 @@
 from conf.master.shared.agent import experiment1
-from conf.master.shared.env import env1
+from conf.master.shared.train_env import env1
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.master_train import MasterConfig
 

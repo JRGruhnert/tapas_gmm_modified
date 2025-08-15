@@ -10,14 +10,13 @@ from tqdm.auto import tqdm
 
 from tapas_gmm.collect_data import Config
 from tapas_gmm.env import Environment
-from tapas_gmm.env.calvin import Calvin
 
 from tapas_gmm.env.environment import BaseEnvironmentConfig
+from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
 from tapas_gmm.master_project.state import State, StateSpace
-from tapas_gmm.master_project.tapas_conversion import make_tapas_format
-from tapas_gmm.master_project.sampler import SceneMaker
+from tapas_gmm.master_project.task import Task, TaskSpace
 from tapas_gmm.policy import PolicyEnum
-from tapas_gmm.policy.manual_policy import ManualCalvinPolicy
+from tapas_gmm.policy.manual import ManualPolicy
 from tapas_gmm.dataset.scene import SceneDataset, SceneDatasetConfig
 from tapas_gmm.utils.argparse import parse_and_build_config
 from tapas_gmm.utils.misc import (
@@ -39,23 +38,23 @@ class Config:
     data_naming: DataNamingConfig
     dataset_config: SceneDatasetConfig
 
-    env: Environment
-    env_config: BaseEnvironmentConfig
-
     policy_type: PolicyEnum
     policy: Any
-
-    horizon: int | None = 300  # None
+    state_space: StateSpace
+    task_space: TaskSpace
+    env: MasterEnvConfig
+    horizon: int | None = None
 
     pretraining_data: bool = False
 
 
 def main(config: Config) -> None:
-    env = Calvin(config=config.env_config, eval=False, vis=False, real_time=False)
+    states = State.from_json_list(config.state_space)
+    # tasks = Task.from_json_list(config.task_space)
+    env = MasterEnv(config=config.env, states=states)
     keyboard_obs = KeyboardObserver()
-    policy = ManualCalvinPolicy(config, env, keyboard_obs)
-    states = State.from_json_list(StateSpace.All)
-    sampler = SceneMaker(states)
+    policy = ManualPolicy(config, env, keyboard_obs)
+
     assert config.data_naming.data_root is not None
 
     save_path = pathlib.Path(config.data_naming.data_root) / config.task
@@ -72,8 +71,7 @@ def main(config: Config) -> None:
         data_root=save_path / config.data_naming.feedback_type,
     )
 
-    env.reset()
-    obs, _, _, _ = env.reset()
+    obs = env.wrapped_reset()
 
     time.sleep(5)
     logger.info("Go!")
@@ -94,34 +92,25 @@ def main(config: Config) -> None:
 
                     # print(obs.ee_pose)
                     prediction, policy_done, policy_success = policy.predict(
-                        obs
+                        obs,
+                        True,
                     )  # Action is relative
                     try:
-                        next_obs, step_reward, env_done, _ = env.step(
-                            prediction, render=True
-                        )
+                        obs = env.wrapped_direct_step(prediction, verbose=True)
                     except RuntimeError as e:
                         logger.error(f"Raw action: {prediction}")
                         logger.error(f"Error: {e}")
                         raise e
-                    # logger.error(obs.scene_obs)
-                    # logger.debug(obs.object_poses)
-                    ee_delta = env.compute_ee_delta(obs, next_obs)
-                    obs.action = torch.Tensor(ee_delta)
-                    obs.reward = torch.Tensor([step_reward])
-                    replay_memory.add_observation(make_tapas_format(obs))
+                    replay_memory.add_observation(obs)
 
-                    obs = next_obs
                     timesteps += 1
                     tbar.update(1)
 
-                    if (env_done and policy_done) or policy_success:
+                    if policy_done and policy_success:
                         # logger.info("Saving trajectory.")
                         ebar.set_description("Saving trajectory")
                         replay_memory.save_current_traj()
-                        obs, _, policy_done, _ = env.reset(
-                            sampler._sample_pre_condition(obs.scene_obs)
-                        )
+                        obs = env.wrapped_reset()
                         keyboard_obs.reset()
                         policy.reset_episode(env)
 
@@ -135,10 +124,7 @@ def main(config: Config) -> None:
                         # logger.info("Resetting without saving traj.")
                         ebar.set_description("Resetting without saving traj")
                         replay_memory.reset_current_traj()
-                        obs, _, _, _ = env.reset(
-                            sampler._sample_pre_condition(obs.scene_obs)
-                        )
-                        # logger.debug(obs.scene_obs)
+                        obs = env.wrapped_reset()
                         keyboard_obs.reset()
                         policy.reset_episode(env)
 
@@ -154,7 +140,7 @@ def main(config: Config) -> None:
 
 
 def complete_config(config: DictConfig) -> DictConfig:
-    config.env_config.task = config.data_naming.task
+    config.env.calvin_config.task = config.data_naming.task
     config.task = config.data_naming.task
     config.dataset_config.data_root = config.data_naming.data_root
     config.data_naming.feedback_type = get_dataset_name(config)

@@ -56,14 +56,13 @@ class Task:
         reversed: bool,
         conditional: bool,
         policy_path: str,
-        policy_name: str,
         overwrites: list[StateIdent],
     ):
         self._ident: TaskIdent = ident
         self._reversed: bool = reversed
         self._conditional: bool = conditional
         self._policy_path: str = policy_path
-        self._policy_name: str = policy_name
+        self._policy_name: str = "gmm"
         self._overwrites: list[StateIdent] = overwrites
         self._policy: GMMPolicy = self._load_policy()
         self._preconditions: dict[StateIdent, StateBound] = None
@@ -107,9 +106,7 @@ class Task:
             "reversed" not in json_data
             or "conditional" not in json_data
             or "policy_path" not in json_data
-            or "policy_name" not in json_data
-            or "preconditions" not in json_data
-            or "overwrites" not in json_data
+            or "overrides" not in json_data
         ):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
         if not isinstance(json_data["reversed"], bool):
@@ -118,11 +115,9 @@ class Task:
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
         if not isinstance(json_data["policy_path"], str):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
-        if not isinstance(json_data["policy_name"], str):
+        if not isinstance(json_data["overrides"], list):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
-        if not isinstance(json_data["overwrites"], list):
-            raise ValueError(f"Invalid JSON data for Task {ident_value}")
-        if not all(isinstance(item, str) for item in json_data["overwrites"]):
+        if not all(isinstance(item, str) for item in json_data["overrides"]):
             raise ValueError(f"Invalid JSON data for Task {ident_value}")
 
         return cls(
@@ -130,8 +125,7 @@ class Task:
             reversed=json_data["reversed"],
             conditional=json_data["conditional"],
             policy_path=json_data["policy_path"],
-            policy_name=json_data["policy_name"],
-            overwrites=[StateIdent(item) for item in json_data["overwrites"]],
+            overwrites=[StateIdent(item) for item in json_data["overrides"]],
         )
 
     @classmethod
@@ -293,6 +287,8 @@ class Task:
             # value shape: [N_demos, 1]
             mean_scalar = value.mean(dim=0)
             origins[StateIdent(key)] = mean_scalar
+        # TODO: add bool states
+        # For boolean states we check if state is flipped in the demonstrations
         return origins
 
     @cached_property

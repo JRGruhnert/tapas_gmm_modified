@@ -42,28 +42,20 @@ class CalvinConfig(BaseEnvironmentConfig):
     model_ids: tuple[str, ...] | None = None  # TODO evaluate if this is needed
     cameras: tuple[str, ...] = ("front", "wrist")
 
+    eval_mode: bool
+    pybullet_vis: bool
+    real_time: bool
+
 
 class Calvin(BaseEnvironment):
-    def __init__(self, config=None, eval=False, vis=True, real_time=False):
-        if config is None:
-            config = CalvinConfig(
-                task="Undefined",
-                cameras=("wrist", "front"),
-                camera_pose={},
-                image_size=(256, 256),
-                static=False,
-                headless=False,
-                scale_action=False,
-                delay_gripper=False,
-                gripper_plot=False,
-                postprocess_actions=False,
-            )
+    def __init__(self, config: CalvinConfig):
+
         super().__init__(config)
 
         self.cameras = config.cameras
 
         self.env: CalvinEnvironment = get_env_from_cfg(
-            eval, vis, real_time
+            config.eval_mode, config.pybullet_vis, config.real_time
         )  # Give the config to the env so that i can connect both config systems and remove the pain
         if self.env is None:
             raise RuntimeError("Could not create environment.")

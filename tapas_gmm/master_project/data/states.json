@@ -260,8 +260,8 @@
         "upper_bound": [
             1.0
         ],
-        "space": "Minimal",
-        "success": "Precise"
+        "space": "Unused",
+        "success": "Ignore"
     },
     "base__switch": {
         "type": "Scalar",

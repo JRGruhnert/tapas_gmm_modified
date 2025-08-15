@@ -1,4 +1,4 @@
-from conf.master.shared.env import test_env
+from conf.master.shared.train_env import test_env
 from conf.master.shared.agent import test
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.master_train import MasterConfig
