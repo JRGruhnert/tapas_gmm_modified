@@ -4231,74 +4231,32 @@ class AutoTPGMM(TPGMM):
         return self._demos.frame_map
 
     @property
-    def start_object_positions(self) -> dict[str, torch.Tensor]:
+    def start_values(self) -> dict[str, torch.Tensor]:
         """
-        Get the start positions of the model. Returns a dictionary with frame names as keys
-        and the start positions as values.
+        Get the start values of the model. Returns a dictionary with frame names as keys
+        and the start values as values.
         """
         if self._demos is None:
             raise RuntimeError("Model not fitted yet.")
 
-        if not hasattr(self._demos, "start_positions"):
+        if not hasattr(self._demos, "start_values"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.start_object_positions
+        return self._demos.start_values
 
     @property
-    def end_object_positions(self) -> dict[str, torch.Tensor]:
+    def end_values(self) -> dict[str, torch.Tensor]:
         """
-        Get the end positions of the model. Returns a dictionary with frame names as keys
-        and the end positions as values.
-        """
-        if self._demos is None:
-            raise RuntimeError("Model not fitted yet.")
-
-        if not hasattr(self._demos, "end_positions"):
-            raise RuntimeError("Demos version is too old.")
-
-        return self._demos.end_object_positions
-
-    @property
-    def start_object_rotations(self) -> dict[str, torch.Tensor]:
-        """
-        Get the start rotations of the model. Returns a dictionary with frame names as keys
-        and the start rotations as values.
+        Get the end values of the model. Returns a dictionary with frame names as keys
+        and the end values as values.
         """
         if self._demos is None:
             raise RuntimeError("Model not fitted yet.")
 
-        if not hasattr(self._demos, "start_rotations"):
+        if not hasattr(self._demos, "end_values"):
             raise RuntimeError("Demos version is too old.")
 
-        return self._demos.start_object_rotations
-
-    @property
-    def end_object_rotations(self) -> dict[str, torch.Tensor]:
-        """
-        Get the end rotations of the model. Returns a dictionary with frame names as keys
-        and the end rotations as values.
-        """
-        if self._demos is None:
-            raise RuntimeError("Model not fitted yet.")
-
-        if not hasattr(self._demos, "end_rotations"):
-            raise RuntimeError("Demos version is too old.")
-
-        return self._demos.end_object_rotations
-
-    @property
-    def start_object_scalars(self) -> dict[str, torch.Tensor]:
-        """
-        Get the start states of the model. Returns a dictionary with frame names as keys
-        and the start states as values.
-        """
-        if self._demos is None:
-            raise RuntimeError("Model not fitted yet.")
-
-        if not hasattr(self._demos, "start_states"):
-            raise RuntimeError("Demos version is too old.")
-
-        return self._demos.start_object_scalars
+        return self._demos.end_values
 
     @property
     def end_object_scalars(self) -> dict[str, torch.Tensor]:

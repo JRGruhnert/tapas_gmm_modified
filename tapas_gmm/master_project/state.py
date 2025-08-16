@@ -1,4 +1,7 @@
 from enum import Enum
+from functools import cached_property
+from loguru import logger
+import numpy as np
 import torch
 import json
 from pathlib import Path
@@ -14,9 +17,9 @@ class StateSpace(Enum):
 class StateType(Enum):
     Euler_Angle = "Euler"
     Axis_Angle = "Axis"
-    Quaternion = "Quaternion"
+    Quaternion = "Quat"
     Range = "Range"
-    Boolean = "Boolean"
+    Boolean = "Bool"
     Flip = "Flip"  # Special type for flipping the state, e.g., for boolean states
 
 
@@ -140,10 +143,14 @@ class State:
         return self._upper_bound
 
     @property
+    def threshold(self) -> float:
+        """Returns the threshold for the state."""
+        return 0.05
+
+    @cached_property
     def relative_threshold(self) -> torch.Tensor:
         """Returns the relative threshold for the state."""
-        # Calculate the relative threshold as 5% of the range
-        return 0.05 * (self.upper_bound - self.lower_bound)
+        return self.threshold * (self.upper_bound - self.lower_bound)
 
     def normalize(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -195,11 +202,11 @@ class State:
                 f"Type {self.type} is not implemented yet. Please implement the value method for {self.type} type."
             )
 
-    def distance(
+    def tp_distance(
         self,
         current: torch.Tensor,
         tp: torch.Tensor,
-        goal: torch.Tensor,
+        goal: torch.Tensor = None,
     ) -> torch.Tensor:
         """Returns the distance of the state as a tensor."""
         if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
@@ -218,6 +225,8 @@ class State:
         elif self.type == StateType.Boolean:
             return torch.abs(current - tp)
         elif self.type == StateType.Flip:
+            if goal is None:
+                return torch.abs(current - tp)  # Distance to the target point
             return tp - torch.abs(current - goal)  # Flips distance
         else:
             raise ValueError(f"Unknown state type: {self.type}")
@@ -230,7 +239,11 @@ class State:
         object_tps: list[str],
     ) -> tuple[bool, torch.Tensor]:
         """Returns the mean of the given tensor values."""
-        if self.name not in object_tps:
+        if self.name not in object_tps and (
+            self.type == StateType.Euler_Angle
+            or self.type == StateType.Axis_Angle
+            or self.type == StateType.Quaternion
+        ):
             return False, None  # Ignore if not in object_tps
         if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
             if reversed:
@@ -303,3 +316,39 @@ class State:
             return torch.cat([w.unsqueeze(0), xyz])
         else:
             return torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
+
+    def validate(
+        self, obs: torch.Tensor, goal: torch.Tensor, surfaces: dict[str, np.ndarray]
+    ) -> bool:
+        if self.success == StateSuccess.Area:
+            if self.type is not StateType.Euler_Angle:
+                raise ValueError(
+                    f"State type {self.type} doesn't support area based evaluation."
+                )
+            return self.check_area_states(obs, goal, surfaces)
+        elif self.success == StateSuccess.Precise:
+            return self.tp_distance(obs, goal).item() > self.threshold
+        elif self.success == StateSuccess.Ignore:
+            return True  # Always True cause ignored
+        else:
+            raise NotImplementedError(
+                f"State Success type: {self.success} is not implemented."
+            )
+
+    def check_area_states(
+        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
+    ) -> bool:
+        area_x = None
+        area_y = None
+        for name, (min_corner, max_corner) in surfaces.items():
+            box_min = np.array(min_corner)
+            box_max = np.array(max_corner)
+            if np.all(x >= box_min) and np.all(x <= box_max):
+                area_x = name
+            if np.all(y >= box_min) and np.all(y <= box_max):
+                area_y = name
+        if area_x is None or area_y is None:
+            logger.warning(
+                f"Point {x} or {y} is not in any defined area. Areas: {surfaces.keys()}"
+            )
+        return area_x == area_y

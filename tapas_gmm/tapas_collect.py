@@ -10,7 +10,7 @@ from tqdm.auto import tqdm
 from tapas_gmm.collect_data import Config
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
 from tapas_gmm.master_project.state import State, StateSpace
-from tapas_gmm.master_project.task import TaskSpace
+from tapas_gmm.master_project.task import Task, TaskSpace
 from tapas_gmm.policy import PolicyEnum
 from tapas_gmm.policy.manual import ManualPolicy
 from tapas_gmm.dataset.scene import SceneDataset, SceneDatasetConfig
@@ -45,8 +45,7 @@ class Config:
 
 def main(config: Config) -> None:
     states = State.from_json_list(config.state_space)
-    # tasks = Task.from_json_list(config.task_space)
-    env = MasterEnv(config=config.env, states=states)
+    env = MasterEnv(config=config.env, states=states, tasks=[])
     keyboard_obs = KeyboardObserver()
     policy = ManualPolicy(config, env, keyboard_obs)
 

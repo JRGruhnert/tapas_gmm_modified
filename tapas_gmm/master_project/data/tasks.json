@@ -3,154 +3,132 @@
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "DrawerClose",
     "overrides": []
   },
   "BackFromCloseDrawer": {
     "space": "Minimal",
     "reversed": true,
     "conditional": false,
-    "policy_path": "DrawerClose",
     "overrides": []
   },
   "OpenDrawer": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "DrawerOpen",
     "overrides": []
   },
   "BackFromOpenDrawer": {
     "space": "Minimal",
     "reversed": true,
     "conditional": false,
-    "policy_path": "DrawerOpen",
     "overrides": []
   },
   "PressButton": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "ButtonPress",
     "overrides": []
   },
   "BackFromPressButton": {
     "space": "Minimal",
     "reversed": true,
     "conditional": false,
-    "policy_path": "ButtonPress",
     "overrides": []
   },
   "SliderToLeft": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "SliderToLeft",
     "overrides": []
   },
   "SliderToRight": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "SliderToRight",
     "overrides": []
   },
   "BackFromSliderToLeft": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "BackFromSliderToLeft",
     "overrides": []
   },
   "BackFromSliderToRight": {
     "space": "Minimal",
     "reversed": false,
     "conditional": false,
-    "policy_path": "BackFromSliderToRight",
     "overrides": []
   },
   "GrabRedBlockTable": {
     "space": "All",
     "reversed": false,
     "conditional": false,
-    "policy_path": "GrabRedBlockTable",
     "overrides": []
   },
   "GrabPinkBlockTable": {
     "space": "All",
     "reversed": false,
     "conditional": false,
-    "policy_path": "GrabPinkBlockTable",
     "overrides": []
   },
   "GrabBlueBlockTable": {
     "space": "All",
     "reversed": false,
     "conditional": false,
-    "policy_path": "GrabBlueBlockTable",
     "overrides": []
   },
   "GrabRedBlockDrawer": {
     "space": "All",
     "reversed": false,
     "conditional": true,
-    "policy_path": "GrabRedBlockDrawer",
     "overrides": []
   },
   "GrabPinkBlockDrawer": {
     "space": "All",
     "reversed": false,
     "conditional": true,
-    "policy_path": "GrabPinkBlockDrawer",
     "overrides": []
   },
   "GrabBlueBlockDrawer": {
     "space": "All",
     "reversed": false,
     "conditional": true,
-    "policy_path": "GrabBlueBlockDrawer",
     "overrides": []
   },
   "PlaceRedBlockTable": {
     "space": "All",
     "reversed": true,
     "conditional": false,
-    "policy_path": "GrabRedBlockTable",
     "overrides": []
   },
   "PlacePinkBlockTable": {
     "space": "All",
     "reversed": true,
     "conditional": false,
-    "policy_path": "GrabPinkBlockTable",
     "overrides": []
   },
   "PlaceBlueBlockTable": {
     "space": "All",
     "reversed": true,
     "conditional": false,
-    "policy_path": "GrabBlueBlockTable",
     "overrides": []
   },
   "PlaceRedBlockDrawer": {
     "space": "All",
     "reversed": true,
     "conditional": true,
-    "policy_path": "GrabRedBlockDrawer",
     "overrides": []
   },
   "PlacePinkBlockDrawer": {
     "space": "All",
     "reversed": true,
     "conditional": true,
-    "policy_path": "GrabPinkBlockDrawer",
     "overrides": []
   },
   "PlaceBlueBlockDrawer": {
     "space": "All",
     "reversed": true,
     "conditional": true,
-    "policy_path": "GrabBlueBlockDrawer",
     "overrides": []
   }
 }

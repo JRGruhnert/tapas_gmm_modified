@@ -30,13 +30,11 @@ class Task:
         name: str,
         reversed: bool,
         conditional: bool,
-        policy_path: str,
         overrides: list[str],
     ):
         self._name: str = name
         self._reversed: bool = reversed
         self._conditional: bool = conditional
-        self._policy_path: str = policy_path
         self._policy_name: str = "gmm"
         self._overrides: list[str] = overrides
         self._policy: GMMPolicy = self._load_policy()
@@ -63,15 +61,13 @@ class Task:
         return self._policy_name
 
     @property
-    def policy_path(self) -> str:
-        return self._policy_path
-
-    @property
     def overrides(self) -> list[str]:
         return self._overrides
 
     @cached_property
     def task_parameters(self) -> dict[str, torch.Tensor]:
+        if len(self._task_parameters) == 0:
+            raise ValueError("Task parameters have not been initialized.")
         return self._task_parameters
 
     @cached_property
@@ -84,15 +80,12 @@ class Task:
         if (
             "reversed" not in json_data
             or "conditional" not in json_data
-            or "policy_path" not in json_data
             or "overrides" not in json_data
         ):
             raise ValueError(f"Invalid JSON data for Task {name}")
         if not isinstance(json_data["reversed"], bool):
             raise ValueError(f"Invalid JSON data for Task {name}")
         if not isinstance(json_data["conditional"], bool):
-            raise ValueError(f"Invalid JSON data for Task {name}")
-        if not isinstance(json_data["policy_path"], str):
             raise ValueError(f"Invalid JSON data for Task {name}")
         if not isinstance(json_data["overrides"], list):
             raise ValueError(f"Invalid JSON data for Task {name}")
@@ -103,8 +96,7 @@ class Task:
             name=name,
             reversed=json_data["reversed"],
             conditional=json_data["conditional"],
-            policy_path=json_data["policy_path"],
-            overwrites=[item for item in json_data["overrides"]],
+            overrides=[item for item in json_data["overrides"]],
         )
 
     @classmethod
@@ -146,7 +138,7 @@ class Task:
     def _policy_checkpoint_name(self) -> pathlib.Path:
         return (
             pathlib.Path("data")
-            / self.policy_path
+            / self.name
             / ("demos" + "_" + "gmm" + "_policy" + "-release")
         ).with_suffix(".pt")
 
@@ -212,13 +204,14 @@ class Task:
         """
         tpgmm: AutoTPGMM = self._policy.model
         # Taskparameters of the AutoTPGMM model
-        tapas_tp: set[str] = []
+        tapas_tp: set[str] = set()
         for _, segment in enumerate(tpgmm.segment_frames):
             for _, frame_idx in enumerate(segment):
+                print(f"Frame {frame_idx}: {tpgmm.frame_mapping[frame_idx]}")
                 pos_str, rot_str = tpgmm.frame_mapping[frame_idx]
                 tapas_tp.add(pos_str)
                 tapas_tp.add(rot_str)
-
+        print(f"Tapas keys: {tapas_tp}")
         for state in states:
             selected, value = state.as_tp(
                 tpgmm.start_values[state.name],
@@ -239,7 +232,7 @@ class Task:
         task_features: list[torch.Tensor] = []
         for state in states:
             if state.name in self.task_parameters_keys:
-                value = state.distance(
+                value = state.tp_distance(
                     obs.states[state.name],
                     self._task_parameters[state.name],
                     goal.states[state.name],

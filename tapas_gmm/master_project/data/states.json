@@ -1,5 +1,5 @@
 {
-    "ee_euler": {
+    "ee_position": {
         "type": "Euler",
         "space": "Minimal",
         "success": "Precise",
@@ -14,7 +14,7 @@
             1.0
         ]
     },
-    "base__slide_euler": {
+    "base__slide_position": {
         "type": "Euler",
         "space": "Minimal",
         "success": "Precise",
@@ -29,7 +29,7 @@
             1.0
         ]
     },
-    "base__drawer_euler": {
+    "base__drawer_position": {
         "type": "Euler",
         "space": "Minimal",
         "success": "Precise",
@@ -44,7 +44,7 @@
             1.0
         ]
     },
-    "base__button_euler": {
+    "base__button_position": {
         "type": "Euler",
         "space": "Minimal",
         "success": "Precise",
@@ -59,7 +59,7 @@
             1.0
         ]
     },
-    "base__switch_euler": {
+    "base__switch_position": {
         "type": "Euler",
         "space": "Unused",
         "success": "Ignore",
@@ -74,7 +74,7 @@
             1.0
         ]
     },
-    "lightbulb_euler": {
+    "lightbulb_position": {
         "type": "Euler",
         "space": "Unused",
         "success": "Ignore",
@@ -89,7 +89,7 @@
             1.0
         ]
     },
-    "led_euler": {
+    "led_position": {
         "type": "Euler",
         "space": "Minimal",
         "success": "Precise",
@@ -104,7 +104,7 @@
             1.0
         ]
     },
-    "block_red_euler": {
+    "block_red_position": {
         "type": "Euler",
         "space": "All",
         "success": "Area",
@@ -119,7 +119,7 @@
             1.0
         ]
     },
-    "block_blue_euler": {
+    "block_blue_position": {
         "type": "Euler",
         "space": "All",
         "success": "Area",
@@ -134,7 +134,7 @@
             1.0
         ]
     },
-    "block_pink_euler": {
+    "block_pink_position": {
         "type": "Euler",
         "space": "All",
         "success": "Area",
@@ -149,89 +149,85 @@
             1.0
         ]
     },
-    "ee_quat": {
+    "ee_rotation": {
         "type": "Quat",
         "space": "Minimal",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "base__slide_quat": {
+    "base__slide_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "base__drawer_quat": {
+    "base__drawer_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "base__button_quat": {
+    "base__button_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "base__switch_quat": {
+    "base__switch_rotation": {
         "type": "Quat",
         "space": "Unused",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "lightbulb_quat": {
+    "lightbulb_rotation": {
         "type": "Quat",
         "space": "Unused",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "led_quat": {
+    "led_rotation": {
         "type": "Quat",
         "space": "Minimal",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "block_red_quat": {
+    "block_red_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "block_blue_quat": {
+    "block_blue_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "block_pink_quat": {
+    "block_pink_rotation": {
         "type": "Quat",
         "space": "All",
         "success": "Ignore",
         "lower_bound": [],
         "upper_bound": []
     },
-    "ee": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "ee_scalar": {
+        "type": "Bool",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "Minimal",
         "success": "Precise"
     },
-    "base__slide": {
-        "type": "Scalar",
+    "base__slide_scalar": {
+        "type": "Range",
         "lower_bound": [
             0.0
         ],
@@ -241,8 +237,8 @@
         "space": "Minimal",
         "success": "Precise"
     },
-    "base__drawer": {
-        "type": "Scalar",
+    "base__drawer_scalar": {
+        "type": "Range",
         "lower_bound": [
             0.0
         ],
@@ -252,19 +248,15 @@
         "space": "Minimal",
         "success": "Precise"
     },
-    "base__button": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "base__button_scalar": {
+        "type": "Flip",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "Unused",
         "success": "Ignore"
     },
-    "base__switch": {
-        "type": "Scalar",
+    "base__switch_scalar": {
+        "type": "Range",
         "lower_bound": [
             0.0
         ],
@@ -274,59 +266,39 @@
         "space": "Unused",
         "success": "Ignore"
     },
-    "lightbulb": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "lightbulb_scalar": {
+        "type": "Flip",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "Unused",
         "success": "Ignore"
     },
-    "led": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "led_scalar": {
+        "type": "Flip",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "Minimal",
         "success": "Precise"
     },
-    "block_red": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "block_red_scalar": {
+        "type": "Bool",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "All",
-        "success": "Ignore"
+        "success": "Precise"
     },
-    "block_blue": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "block_blue_scalar": {
+        "type": "Bool",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "All",
-        "success": "Ignore"
+        "success": "Precise"
     },
-    "block_pink": {
-        "type": "Scalar",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            1.0
-        ],
+    "block_pink_scalar": {
+        "type": "Bool",
+        "lower_bound": [],
+        "upper_bound": [],
         "space": "All",
-        "success": "Ignore"
+        "success": "Precise"
     }
 }

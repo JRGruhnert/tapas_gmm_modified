@@ -5,12 +5,11 @@ import torch.nn as nn
 from torch.distributions import Categorical
 from abc import ABC, abstractmethod
 from torch_geometric.data import Batch, HeteroData
-from build.lib.tapas_gmm.master_project.master_encoder import (
+from tapas_gmm.master_project.networks.layers.encoder import (
     QuaternionEncoder,
     ScalarEncoder,
-    EulerEncoder,
+    TransformEncoder,
 )
-from tapas_gmm.master_project.converter import NetworkConverter
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.state import State, StateType
 from tapas_gmm.master_project.task import Task
@@ -40,16 +39,16 @@ class ActorCriticBase(nn.Module, ABC):
         self.dim_encoder = 32
         self.encoder_obs = nn.ModuleDict(
             {
-                StateType.Euler_Angle.name: EulerEncoder(self.dim_encoder),
-                StateType.Rot.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: TransformEncoder(self.dim_encoder),
+                StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Range.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
         self.encoder_goal = nn.ModuleDict(
             {
-                StateType.Euler_Angle.name: EulerEncoder(self.dim_encoder),
-                StateType.Rot.name: QuaternionEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: TransformEncoder(self.dim_encoder),
+                StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Range.name: ScalarEncoder(self.dim_encoder),
             }
         )
@@ -129,7 +128,9 @@ class ActorCriticBase(nn.Module, ABC):
     ) -> dict[StateType, torch.Tensor]:
         grouped = {t: [] for t in StateType}
         for state in self.states:
-            distance = state.distance(obs1.states[state.name], obs2.states[state.name])
+            distance = state.tp_distance(
+                obs1.states[state.name], obs2.states[state.name]
+            )
             grouped[state.type].append(distance)
         return {
             t: torch.stack(vals).float()

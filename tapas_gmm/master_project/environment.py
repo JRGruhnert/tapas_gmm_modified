@@ -1,16 +1,13 @@
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from loguru import logger
 import numpy as np
 import torch
 
 from calvin_env.envs.observation import CalvinObservation
 from tapas_gmm.env.calvin import Calvin, CalvinConfig
-from tapas_gmm.master_project.state import (
-    State,
-    StateSuccess,
-    StateType,
-)
+from tapas_gmm.master_project.state import State
 from tapas_gmm.master_project.task import Task
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.utils.observation import (
@@ -36,7 +33,6 @@ class MasterEnvConfig:
     reward_mode: RewardMode = RewardMode.SPARSE
     max_reward: float = 100.0
     min_reward: float = 0.0
-    precise_success_threshold: float = 0.05
 
 
 class MasterEnv:
@@ -44,15 +40,27 @@ class MasterEnv:
         self,
         config: MasterEnvConfig,
         states: list[State],
+        tasks: list[Task],
     ):
         self.config = config
         self.states = states
+        self.tasks = tasks
         self.env = Calvin(config=config.calvin_config)
 
         self.last_gripper_action = [1.0]  # open
-        self.max_steps = 20  # TODO: Change
         self.steps_left = self.max_steps
-        self.is_terminal = False
+        self.terminal = False
+
+    @cached_property
+    def max_steps(self) -> int:
+        """Calculate the maximum number of steps allowed in the environment. Its a quick estimated based on the assumption that every tapas task is half a real task."""
+        max_steps = 0
+        for task in self.tasks:
+            if task.conditional:
+                max_steps += 3
+            else:
+                max_steps += 1
+        return max_steps
 
     def reset(self) -> tuple[MasterObservation, MasterObservation]:
         goal_calvin, _, _, _ = self.env.reset(settle_time=50)
@@ -65,7 +73,7 @@ class MasterEnv:
             self.current = MasterObservation(self.current_calvin)
 
         self.steps_left = self.max_steps
-        self.is_terminal = False
+        self.terminal = False
         return self.current, self.goal
 
     def wrapped_reset(self) -> SceneObservation:  # type: ignore
@@ -99,10 +107,12 @@ class MasterEnv:
                     print(self.current_calvin.ee_pose)
                     print(self.current_calvin.ee_state)
                 self.current = MasterObservation(self.current_calvin)
+
         except FloatingPointError:
             # At some point the model crashes.
             # Have to debug if its because of bad input but seems to be not relevant for training
             print(f"Error happened!")
+        self.steps_left -= 1
         reward, done = self.evaluate()
         return reward, done, self.current
 
@@ -133,7 +143,6 @@ class MasterEnv:
             raise UserWarning(
                 "Episode already ended. Please reset the evaluator with the new goal and state."
             )
-        self.steps_left -= 1
         if self.config.reward_mode is RewardMode.SPARSE:
             completion = self.check_completion()
             if completion:  # Success
@@ -160,49 +169,14 @@ class MasterEnv:
         ##### Checking if goal is reached
         goal_reached = True
         for state in self.states:
+            goal_reached = state.validate(
+                self.current.states[state.name],
+                self.goal.states[state.name],
+                self.env.surfaces,
+            )
             if not goal_reached:
                 break  # Early exit if goal is already not reached
-            if state.success == StateSuccess.Area:
-                if state.type is not StateType.Euler_Angle:
-                    raise ValueError(
-                        f"State type {state.type} doesn't support area based evaluation."
-                    )
-                goal_reached = self.check_area_states(
-                    self.current.states[state], self.goal.states[state]
-                )
-            elif state.success == StateSuccess.Precise:
-                # TODO: this is not correct for bool states
-                goal_reached = (
-                    state.distance(
-                        self.current.states[state.name], self.goal.states[state.name]
-                    ).item()
-                    > self.config.precise_success_threshold
-                )
-
-            elif state.success == StateSuccess.Ignore:
-                pass  # Probably only Quaternions cause of Model recording
-                # State is not evaluated
-            else:
-                raise NotImplementedError(
-                    f"State Success type: {state.success} is not implemented."
-                )
         return goal_reached
-
-    def check_area_states(self, x: np.ndarray, y: np.ndarray) -> bool:
-        area_x = None
-        area_y = None
-        for name, (min_corner, max_corner) in self.env.surfaces.items():
-            box_min = np.array(min_corner)
-            box_max = np.array(max_corner)
-            if np.all(x >= box_min) and np.all(x <= box_max):
-                area_x = name
-            if np.all(y >= box_min) and np.all(y <= box_max):
-                area_y = name
-        if area_x is None or area_y is None:
-            logger.warning(
-                f"Point {x} or {y} is not in any defined area. Areas: {self.env.surfaces.keys()}"
-            )
-        return area_x == area_y
 
     def make_tapas_format(self, obs: CalvinObservation, task: Task = None, goal: MasterObservation = None) -> SceneObservation:  # type: ignore
         """
@@ -227,7 +201,8 @@ class MasterEnv:
         joint_vel = torch.Tensor(obs.joint_vel)
         ee_pose = torch.Tensor(obs.ee_pose)
         ee_state = torch.Tensor([obs.ee_state])
-
+        print(f"Gripper state: {obs.ee_state}")
+        print(f"Gripper pose: {obs.ee_pose}")
         camera_obs = {}
         for cam in obs.camera_names:
             rgb = obs.rgb[cam].transpose((2, 0, 1)) / 255
@@ -270,12 +245,11 @@ class MasterEnv:
         object_poses = dict_to_tensordict(
             {name: torch.Tensor(pose) for name, pose in object_poses_dict.items()},
         )
-        print(f"Object poses: {object_poses_dict}")
-
+        # print(f"Object poses: {object_poses_dict}")
         object_states = dict_to_tensordict(
             {name: torch.Tensor([state]) for name, state in obs.object_states.items()},
         )
-        print(f"Object states: {obs.object_states}")
+        # print(f"Object states: {obs.object_states}")
         obs = SceneObservation(
             feedback=reward,
             action=action,

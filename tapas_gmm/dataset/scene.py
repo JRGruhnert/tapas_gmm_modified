@@ -945,7 +945,14 @@ class SceneDataset(Dataset):
             get_object_poses,
             get_object_states,
         )
-        gen_attr = ("action", "feedback", "ee_pose", "proprio_obs", "object_poses")
+        gen_attr = (
+            "action",
+            "feedback",
+            "ee_pose",
+            "proprio_obs",
+            "object_poses",
+            "object_states",
+        )
         for arg, attr in zip(gen_args, gen_attr):
             if arg:
                 file_name = GENERIC_ATTRIBUTES[attr]

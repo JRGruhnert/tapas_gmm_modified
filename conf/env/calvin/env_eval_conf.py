@@ -1,5 +1,3 @@
-from omegaconf import MISSING
-
 from tapas_gmm.env.calvin import CalvinConfig
 
 calvin_env_config = CalvinConfig(
@@ -13,7 +11,7 @@ calvin_env_config = CalvinConfig(
     delay_gripper=False,
     gripper_plot=False,
     postprocess_actions=False,
-    eval_mode=False,
+    eval_mode=True,
     pybullet_vis=False,
     real_time=False,
 )

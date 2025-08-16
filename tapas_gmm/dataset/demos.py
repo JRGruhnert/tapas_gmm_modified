@@ -274,38 +274,69 @@ class Demos:
                     f"frame_{i}": v for i, v in enumerate(t.object_poses.swapdims(0, 1))
                 }
 
-        self._frame_map: list[str] = []
-        self._frame_map.append("ee")
+        self._frame_map: list[tuple[str, str]] = []
+        self._frame_map.append(("ee_position", "ee_rotation"))
         for obj_name in trajectories[0].object_poses.keys():
-            self._frame_map.append(obj_name)
+            self._frame_map.append((f"{obj_name}_position", f"{obj_name}_rotation"))
 
         # Get initial object poses from all trajectories and concatenate them
-        start_object_poses = {
-            obj_name: torch.stack([o.object_poses[obj_name][0] for o in trajectories])
+        start_positions = {
+            f"{obj_name}_position": torch.stack(
+                [o.object_poses[obj_name][0][..., :3] for o in trajectories]
+            )
             for obj_name in trajectories[0].object_poses.keys()
         }
-        end_object_poses = {
-            obj_name: torch.stack([o.object_poses[obj_name][-1] for o in trajectories])
+        start_positions["ee_position"] = torch.stack(
+            [o.ee_pose[0][..., :3] for o in trajectories]
+        )
+        start_rotations = {
+            f"{obj_name}_rotation": torch.stack(
+                [o.object_poses[obj_name][0][..., 3:] for o in trajectories]
+            )
             for obj_name in trajectories[0].object_poses.keys()
         }
-        start_object_states = {
-            obj_name: torch.stack([o.object_states[obj_name][0] for o in trajectories])
+        start_rotations["ee_rotation"] = torch.stack(
+            [o.ee_pose[0][..., 3:] for o in trajectories]
+        )
+        start_scalars = {
+            f"{obj_name}_scalar": torch.stack(
+                [o.object_states[obj_name][0] for o in trajectories]
+            )
             for obj_name in trajectories[0].object_states.keys()
         }
-        end_object_states = {
-            obj_name: torch.stack([o.object_states[obj_name][-1] for o in trajectories])
+        start_scalars["ee_scalar"] = torch.stack(
+            [o.gripper_state[0] for o in trajectories]
+        )
+        end_positions = {
+            f"{obj_name}_position": torch.stack(
+                [o.object_poses[obj_name][-1][..., :3] for o in trajectories]
+            )
+            for obj_name in trajectories[0].object_poses.keys()
+        }
+        end_positions["ee_position"] = torch.stack(
+            [o.ee_pose[-1][..., :3] for o in trajectories]
+        )
+        end_rotations = {
+            f"{obj_name}_rotation": torch.stack(
+                [o.object_poses[obj_name][-1][..., 3:] for o in trajectories]
+            )
+            for obj_name in trajectories[0].object_poses.keys()
+        }
+        end_rotations["ee_rotation"] = torch.stack(
+            [o.ee_pose[-1][..., 3:] for o in trajectories]
+        )
+        end_scalars = {
+            f"{obj_name}_scalar": torch.stack(
+                [o.object_states[obj_name][-1] for o in trajectories]
+            )
             for obj_name in trajectories[0].object_states.keys()
         }
-        start_object_poses["ee"] = torch.stack([o.ee_pose[0] for o in trajectories])
-        end_object_poses["ee"] = torch.stack([o.ee_pose[-1] for o in trajectories])
-        start_object_states["ee"] = torch.stack([o.ee_state[0] for o in trajectories])
-        end_object_states["ee"] = torch.stack([o.ee_state[-1] for o in trajectories])
+        end_scalars["ee_scalar"] = torch.stack(
+            [o.gripper_state[-1] for o in trajectories]
+        )
 
-        # Get the initial and final object poses
-        self._start_object_poses = start_object_poses
-        self._end_object_poses = end_object_poses
-        self._start_object_states = start_object_states
-        self._end_object_states = end_object_states
+        self._start_values = {**start_positions, **start_rotations, **start_scalars}
+        self._end_values = {**end_positions, **end_rotations, **end_scalars}
 
         # Add the EE frame as the first frame. As this will be the obervation
         # we remove it later. However, it needs the same transformations, so
@@ -351,7 +382,6 @@ class Demos:
         # plt.show()
 
         frame_quats = []
-        frame_quats_unchanged = []  # NOTE: added
         if add_world_frame:
             frame_quats.append(
                 tuple(identity_quaternions(o[0:1, :, 0].shape) for o in frame_poses)
@@ -366,12 +396,6 @@ class Demos:
 
         frame_quats.append(tuple(o[1:, :, 3:] for o in frame_poses))
         self.frame_quats = tuple(torch.cat(o) for o in zip(*frame_quats))
-        frame_quats_unchanged.append(
-            tuple(o[:, :, 3:] for o in frame_poses)
-        )  # NOTE: added
-        self.frame_quats_unchanged = tuple(
-            torch.cat(o) for o in zip(*frame_quats_unchanged)
-        )  # NOTE: added
 
         self.frame_quats = configurable_rotate_frames(
             self.frame_quats,
@@ -380,14 +404,6 @@ class Demos:
             add_init_ee_pose_as_frame,
             add_world_frame,
         )
-
-        self.frame_quats_unchanged = configurable_rotate_frames(
-            self.frame_quats_unchanged,
-            enforce_z_down,
-            enforce_z_up,
-            add_init_ee_pose_as_frame,
-            add_world_frame,
-        )  # NOTE: added
 
         # Convert the reference frames and EE pose into homogeneous transforms.
         for i in range(self.n_trajs):
@@ -430,7 +446,6 @@ class Demos:
             ).reshape(n_frames, n_steps, 4, 4)
 
             # Pop out the EE pose
-            frame2world_unchanged = frame2world.clone()  # NOTE: added
             ee2world = frame2world[0, :, :, :].clone()
             self.ee_poses.append(ee2world)
 
@@ -470,13 +485,9 @@ class Demos:
             self.world2frames_velocities.append(world2frame_vel)
             self.frames2world_velocities.append(frame2world_vel)
 
-            # Make also a list for frames last value
-            self.frames2world_unchanged.append(frame2world_unchanged)  # NOTE: added
-
         self.world2frames = tuple(self.world2frames)
         self.world2frames_velocities = tuple(self.world2frames_velocities)
         self.frames2world = tuple(self.frames2world)
-        self.frames2world_unchanged = tuple(self.frames2world_unchanged)  # NOTE: added
         self.frames2world_velocities = tuple(self.frames2world_velocities)
         self.ee_poses = tuple(self.ee_poses)
         # ee_poses_vel is the EE pose in world frame, but with zero bias (for velocity
@@ -671,39 +682,25 @@ class Demos:
         )
 
     @property
-    def frame_map(self) -> list[str]:
+    def frame_map(self) -> list[tuple[str, str]]:
         """
         Get the mapping from frame index to frame name.
         """
         return self._frame_map
 
     @property
-    def start_object_positions(self) -> dict[str, torch.Tensor]:
+    def start_values(self) -> dict[str, torch.Tensor]:
         """
         Get the initial object poses.
         """
-        return self._start_object_poses
+        return self._start_values
 
     @property
-    def end_object_positions(self) -> dict[str, torch.Tensor]:
+    def end_values(self) -> dict[str, torch.Tensor]:
         """
         Get the final object poses.
         """
-        return self._end_object_poses
-
-    @property
-    def start_object_scalars(self) -> dict[str, torch.Tensor]:
-        """
-        Get the initial object states.
-        """
-        return self._start_object_states
-
-    @property
-    def end_object_scalars(self) -> dict[str, torch.Tensor]:
-        """
-        Get the final object states.
-        """
-        return self._end_object_states
+        return self._end_values
 
     @property
     def _n_gripper_states(self):
@@ -2748,9 +2745,6 @@ class DemosSegment(Demos):
         self.frame_names = self.full_demos.frame_names
 
         self.world2frames = self._get_indexed(self.full_demos.world2frames, 1)
-        self.frames2world_unchanged = self._get_indexed(
-            self.full_demos.frames2world_unchanged, 1
-        )  # NOTE: added
         self.world2frames_velocities = self._get_indexed(
             self.full_demos.world2frames_velocities, 1
         )
@@ -2759,9 +2753,6 @@ class DemosSegment(Demos):
             self.full_demos.frames2world_velocities, 1
         )
         self.frame_quats = self._get_indexed(self.full_demos.frame_quats, 1)
-        self.frame_quats_unchanged = self._get_indexed(
-            self.full_demos.frame_quats_unchanged, 1
-        )  # NOTE: added
         self.ee_poses = self._get_indexed(self.full_demos.ee_poses, 0)
         self.ee_poses_vel = self._get_indexed(self.full_demos.ee_poses_vel, 0)
         self.ee_poses_raw = self._get_indexed(self.full_demos.ee_poses_raw, 0)
