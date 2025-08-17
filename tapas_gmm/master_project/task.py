@@ -93,12 +93,12 @@ class Task:
         self._policy: GMMPolicy = self._load_policy()
         self._task_parameters: dict[str, torch.Tensor] = {}
         self._overrides: dict[str, np.ndarray] = {}
-        if self._reversed and len(self._overrides_keys) == 0:
-            # NOTE: Tapas safeguard.
-            # TODO: Remove this restriction in the future.
-            raise ValueError(
-                "Reversed Tasks without overrides can't work in the current Tapas Setup. Most definitely this is not intended."
-            )
+        # if self._reversed and len(self._overrides_keys) == 0:
+        #     NOTE: Tapas safeguard.
+        #     TODO: Remove this restriction in the future.
+        # #    raise ValueError(
+        # #        "Reversed Tasks without overrides can't work in the current Tapas Setup. Most definitely this is not intended."
+        # #    )
 
     @property
     def name(self) -> str:

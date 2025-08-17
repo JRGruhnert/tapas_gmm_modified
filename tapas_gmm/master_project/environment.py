@@ -7,6 +7,7 @@ import re
 import torch
 
 from calvin_env.envs.observation import CalvinObservation
+from build.lib.tapas_gmm.master_project import task
 from tapas_gmm.env.calvin import Calvin, CalvinConfig
 from tapas_gmm.master_project.state import State
 from tapas_gmm.master_project.task import Task
@@ -88,10 +89,40 @@ class MasterEnv:
         viz_dict = {}  # TODO: Make available
         task.policy.reset_episode(self.env)
         # Batch prediction for the given observation
-        # In your evaluation, before calling policy.predict():
-        obs = self.make_tapas_format(self.current_calvin, task, self.goal)
+        obs_normal = self.make_tapas_format(self.current_calvin, task, self.goal)
+        obs_override = self.make_tapas_format(self.current_calvin)
+
+        # Compare EVERYTHING
+        print("=== NUCLEAR COMPARISON ===")
+        print(
+            f"EE Pose equal: {torch.allclose(obs_normal.ee_pose, obs_override.ee_pose)}"
+        )
+        print(
+            f"EE State equal: {torch.allclose(obs_normal.gripper_state, obs_override.gripper_state)}"
+        )
+
+        # Check object poses
+        for key in obs_normal.object_poses.keys():
+            equal = torch.allclose(
+                obs_normal.object_poses[key], obs_override.object_poses[key]
+            )
+            print(f"Object {key} equal: {equal}")
+            if not equal:
+                print(f"  Normal: {obs_normal.object_poses[key]}")
+                print(f"  Override: {obs_override.object_poses[key]}")
+
+        # Test predictions on both
+        pred_normal, _ = task.policy.predict(obs_normal)
+        pred_override, _ = task.policy.predict(obs_override)
+
+        print(f"Predictions equal: {torch.allclose(pred_normal, pred_override)}")
+        print(f"Normal prediction: {pred_normal[:3]}")
+        print(f"Override prediction: {pred_override[:3]}")
+
         try:
-            prediction, _ = task.policy.predict(obs)
+            prediction, _ = task.policy.predict(
+                self.make_tapas_format(self.current_calvin, task, self.goal)
+            )
             for action in prediction:
                 if len(action.gripper) != 0:
                     self.last_gripper_action = action.gripper
@@ -194,7 +225,6 @@ class MasterEnv:
             reward = torch.Tensor([0.0])
         else:
             reward = torch.Tensor([obs.reward])
-        print(obs.ee_state)
         joint_pos = torch.Tensor(obs.joint_pos)
         joint_vel = torch.Tensor(obs.joint_vel)
         ee_pose = torch.Tensor(obs.ee_pose)
@@ -219,14 +249,12 @@ class MasterEnv:
             {"_order": CameraOrder._create(obs.camera_names)} | camera_obs
         )
         object_poses_dict = obs.object_poses
+        object_states_dict = obs.object_states
         if task is not None and goal is not None and task.reversed:
             # NOTE: This is only a hack to make reversed tapas models work
             # TODO: Update this when possible
             logger.debug(f"Overriding Tapas Task {task.name}")
-
             for state_name, state_value in task.overrides.items():
-                print(state_name)
-                print(state_value)
                 match_position = re.search(r"(.+?)_(?:position)", state_name)
                 match_rotation = re.search(r"(.+?)_(?:rotation)", state_name)
                 match_scalar = re.search(r"(.+?)_(?:scalar)", state_name)
@@ -234,13 +262,13 @@ class MasterEnv:
                     ee_pose = torch.cat(
                         [
                             torch.Tensor(state_value),
-                            torch.Tensor(obs.ee_pose[-4:]),
+                            ee_pose[3:],
                         ]
                     )
                 elif state_name == "ee_rotation":
                     ee_pose = torch.cat(
                         [
-                            torch.Tensor(obs.ee_pose[:3]),
+                            ee_pose[:3],
                             torch.Tensor(state_value),
                         ]
                     )
@@ -252,7 +280,7 @@ class MasterEnv:
                     object_poses_dict[match_position.group(1)] = np.concatenate(
                         [
                             goal.states[f"{match_position.group(1)}_position"].numpy(),
-                            object_poses_dict[match_position.group(1)][-4:],
+                            object_poses_dict[match_position.group(1)][3:],
                         ]
                     )
                 elif match_rotation:
@@ -263,7 +291,7 @@ class MasterEnv:
                         ]
                     )
                 elif match_scalar:
-                    object_poses_dict[match_scalar.group(1)] = goal.states[
+                    object_states_dict[match_scalar.group(1)] = goal.states[
                         f"{match_scalar.group(1)}_scalar"
                     ].numpy()
                 else:
@@ -278,18 +306,11 @@ class MasterEnv:
         object_states = dict_to_tensordict(
             {
                 name: torch.Tensor([state])
-                for name, state in sorted(obs.object_states.items())
+                for name, state in sorted(object_states_dict.items())
             },
         )
-        for name, pose in object_poses.items():
-            print(name)
-            print(pose.shape)
-            print(isinstance(pose, torch.Tensor))
-        print(ee_state.shape)
-        print(isinstance(ee_state, torch.Tensor))
-        print(ee_pose.shape)
-        print(isinstance(ee_pose, torch.Tensor))
-        obs = SceneObservation(
+
+        return SceneObservation(
             feedback=reward,
             action=action,
             cameras=multicam_obs,
@@ -301,4 +322,3 @@ class MasterEnv:
             joint_vel=joint_vel,
             batch_size=empty_batchsize,
         )
-        return obs
