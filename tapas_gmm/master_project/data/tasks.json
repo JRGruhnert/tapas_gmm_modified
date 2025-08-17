@@ -33,7 +33,7 @@
     "space": ["Debug", "Minimal", "Normal"],
     "reversed": true,
     "conditional": false,
-    "overrides": ["ee_scalar", "ee_rotation", "ee_position"]
+    "overrides": ["ee_scalar", "ee_position", "ee_rotation"]
   },
   "OpenSlide": {
     "space": ["Debug", "Minimal", "Normal"],

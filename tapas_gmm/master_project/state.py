@@ -355,43 +355,7 @@ class QuaternionState(State):
             mean_quat = -mean_quat
         # Swap back to (x, y, z, w)
         mean_quat_xyzw = mean_quat[[1, 2, 3, 0]]
-        return mean_quat_xyzw
-
-    def rotation_mean_exp_map(self, rotations: torch.Tensor) -> torch.Tensor:
-        """
-        rotations: tensor of shape [N, 4] where each row is [w, x, y, z]
-        """
-        # Convert rotations to rotation vectors (axis-angle representation)
-        rotation_vectors = []
-
-        for q in rotations:
-            # Normalize rotation quaternion
-            q = q / torch.norm(q)
-
-            # Extract angle and axis
-            w, x, y, z = q
-            angle = 2 * torch.acos(torch.abs(w))
-
-            if torch.sin(angle / 2) > 1e-6:
-                axis = torch.tensor([x, y, z]) / torch.sin(angle / 2)
-                rotation_vector = angle * axis
-            else:
-                rotation_vector = torch.zeros(3)
-
-            rotation_vectors.append(rotation_vector)
-
-        # Average the rotation vectors
-        mean_rotation_vector = torch.stack(rotation_vectors).mean(dim=0)
-
-        # Convert back to quaternion
-        angle = torch.norm(mean_rotation_vector)
-        if angle > 1e-6:
-            axis = mean_rotation_vector / angle
-            w = torch.cos(angle / 2)
-            xyz = torch.sin(angle / 2) * axis
-            return torch.cat([w.unsqueeze(0), xyz])
-        else:
-            return torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
+        return self.normalize_quat(mean_quat_xyzw)
 
 
 @State.register_type(StateType.Range)

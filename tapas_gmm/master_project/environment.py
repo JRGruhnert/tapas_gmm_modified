@@ -18,6 +18,7 @@ from tapas_gmm.utils.observation import (
     SingleCamObservation,
     dict_to_tensordict,
     empty_batchsize,
+    tensor_dict_equal,
 )
 
 
@@ -89,36 +90,6 @@ class MasterEnv:
         viz_dict = {}  # TODO: Make available
         task.policy.reset_episode(self.env)
         # Batch prediction for the given observation
-        obs_normal = self.make_tapas_format(self.current_calvin, task, self.goal)
-        obs_override = self.make_tapas_format(self.current_calvin)
-
-        # Compare EVERYTHING
-        print("=== NUCLEAR COMPARISON ===")
-        print(
-            f"EE Pose equal: {torch.allclose(obs_normal.ee_pose, obs_override.ee_pose)}"
-        )
-        print(
-            f"EE State equal: {torch.allclose(obs_normal.gripper_state, obs_override.gripper_state)}"
-        )
-
-        # Check object poses
-        for key in obs_normal.object_poses.keys():
-            equal = torch.allclose(
-                obs_normal.object_poses[key], obs_override.object_poses[key]
-            )
-            print(f"Object {key} equal: {equal}")
-            if not equal:
-                print(f"  Normal: {obs_normal.object_poses[key]}")
-                print(f"  Override: {obs_override.object_poses[key]}")
-
-        # Test predictions on both
-        pred_normal, _ = task.policy.predict(obs_normal)
-        pred_override, _ = task.policy.predict(obs_override)
-
-        print(f"Predictions equal: {torch.allclose(pred_normal, pred_override)}")
-        print(f"Normal prediction: {pred_normal[:3]}")
-        print(f"Override prediction: {pred_override[:3]}")
-
         try:
             prediction, _ = task.policy.predict(
                 self.make_tapas_format(self.current_calvin, task, self.goal)
@@ -250,7 +221,8 @@ class MasterEnv:
         )
         object_poses_dict = obs.object_poses
         object_states_dict = obs.object_states
-        if task is not None and goal is not None and task.reversed:
+        if task is not None and task.reversed:
+            assert goal is not None, "Goal must be provided for reversed tasks."
             # NOTE: This is only a hack to make reversed tapas models work
             # TODO: Update this when possible
             logger.debug(f"Overriding Tapas Task {task.name}")
