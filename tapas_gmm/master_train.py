@@ -36,9 +36,9 @@ def train_agent(config: MasterConfig):
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
-    batch_start_time = datetime.now().replace(microsecond=0)
     stop_training = False
     while not stop_training:  # Training loop
+        start_time_batch = datetime.now().replace(microsecond=0)
         terminal = False
         batch_rdy = False
         obs, goal = env.reset()
@@ -47,33 +47,29 @@ def train_agent(config: MasterConfig):
             reward, terminal, obs = env.step(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
-            train_start_time = datetime.now().replace(microsecond=0)
+            start_time_learning = datetime.now().replace(microsecond=0)
             stop_training = agent.learn(verbose=config.verbose)
-            train_end_time = datetime.now().replace(microsecond=0)
+            end_time_learning = datetime.now().replace(microsecond=0)
             print(
-                "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                f"""
+                ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                Batch Duration: {start_time_learning - start_time_batch}
+                Learn Duration: {end_time_learning - start_time_learning}
+                Elapsed Time:   {end_time_learning - start_time}
+                Current Time:   {end_time_learning}
+                --------------------------------------------------------------------------------------------
+                """
             )
-            print(f"Time: {train_end_time}")
-            print(f"Batch Duration: {train_start_time - batch_start_time}")
-            print(f"Train Duration: {train_end_time - train_start_time}")
-            print(f"Elapsed Time: {train_end_time - start_time}")
-            print(
-                "--------------------------------------------------------------------------------------------"
-            )
-            batch_start_time = datetime.now().replace(microsecond=0)
-
     env.close()
-
-    # print total training time
-    print(
-        "============================================================================================"
-    )
     end_time = datetime.now().replace(microsecond=0)
-    print("Started training at: ", start_time)
-    print("Finished training at: ", end_time)
-    print("Total training time: ", end_time - start_time)
     print(
-        "============================================================================================"
+        f"""
+        ============================================================================================
+        Start Time: {start_time}
+        End Time:   {end_time}
+        Duration:   {end_time - start_time}
+        ============================================================================================
+        """
     )
 
 

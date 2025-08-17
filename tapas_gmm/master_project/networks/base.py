@@ -8,7 +8,7 @@ from torch_geometric.data import Batch, HeteroData
 from tapas_gmm.master_project.networks.layers.encoder import (
     QuaternionEncoder,
     ScalarEncoder,
-    TransformEncoder,
+    PositionEncoder,
 )
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.state import State, StateType
@@ -39,17 +39,21 @@ class ActorCriticBase(nn.Module, ABC):
         self.dim_encoder = 32
         self.encoder_obs = nn.ModuleDict(
             {
-                StateType.Euler_Angle.name: TransformEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: PositionEncoder(self.dim_encoder),
                 StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Range.name: ScalarEncoder(self.dim_encoder),
+                StateType.Boolean.name: ScalarEncoder(self.dim_encoder),
+                StateType.Flip.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
         self.encoder_goal = nn.ModuleDict(
             {
-                StateType.Euler_Angle.name: TransformEncoder(self.dim_encoder),
+                StateType.Euler_Angle.name: PositionEncoder(self.dim_encoder),
                 StateType.Quaternion.name: QuaternionEncoder(self.dim_encoder),
                 StateType.Range.name: ScalarEncoder(self.dim_encoder),
+                StateType.Boolean.name: ScalarEncoder(self.dim_encoder),
+                StateType.Flip.name: ScalarEncoder(self.dim_encoder),
             }
         )
 
@@ -109,11 +113,11 @@ class ActorCriticBase(nn.Module, ABC):
 
     def state_type_dict_values(
         self,
-        obs: MasterObservation,
+        x: MasterObservation,
     ) -> dict[StateType, torch.Tensor]:
         grouped = {t: [] for t in StateType}
         for state in self.states:
-            value = state.value(obs.states[state.name])
+            value = state.value(x.states[state.name])
             grouped[state.type].append(value)
         return {
             t: torch.stack(vals).float()
@@ -170,13 +174,13 @@ class GnnBase(ActorCriticBase, ABC):
     def encode_states(
         self, obs: MasterObservation, goal: MasterObservation
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        obs_dict = self.state_type_dict_values(obs)
-        goal_dict = self.state_type_dict_values(goal)
         obs_encoded = [
-            self.encoder_obs[k.name](v.to(device)) for k, v in obs_dict.items()
+            self.encoder_obs[state.type.name](obs.states[state.name].to(device))
+            for state in self.states
         ]
         goal_encoded = [
-            self.encoder_goal[k.name](v.to(device)) for k, v in goal_dict.items()
+            self.encoder_goal[state.type.name](goal.states[state.name].to(device))
+            for state in self.states
         ]
         obs_tensor = torch.stack(obs_encoded, dim=0)  # [num_states, feature_size]
         goal_tensor = torch.stack(goal_encoded, dim=0)  # [num_states, feature_size]
@@ -254,8 +258,10 @@ class GnnBase(ActorCriticBase, ABC):
         full = self.state_task_full[0] * self.dim_tasks + self.state_task_full[1]
         return torch.isin(full, sparse).float().unsqueeze(-1)
 
-    def state_task_attr_weighted(self, current: MasterObservation) -> torch.Tensor:
-        dist_matrix = self.task_state_distances(current, pad=True)  # [T, S, 2]
+    def state_task_attr_weighted(
+        self, current: MasterObservation, goal: MasterObservation
+    ) -> torch.Tensor:
+        dist_matrix = self.task_state_distances(current, goal, pad=True)  # [T, S, 2]
         # Now safely get edge attributes for (task, state) pairs: [E, 2]
         edge_attr = dist_matrix[
             self.state_task_full[1], self.state_task_full[0]

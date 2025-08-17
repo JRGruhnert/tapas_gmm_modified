@@ -15,7 +15,7 @@ class QuaternionEncoder(nn.Module):
         return self.fc(q)
 
 
-class TransformEncoder(nn.Module):
+class PositionEncoder(nn.Module):
     def __init__(self, out_dim):
         super().__init__()
         self.fc = nn.Sequential(

@@ -126,7 +126,9 @@ class Gnn(GnnBase):
         data[("goal", "goal-obs", "obs")].edge_index = self.state_state_sparse
         data[("obs", "obs-task", "task")].edge_index = self.state_task_full
         # data[("goal", "goal-obs", "obs")].edge_attr = self.cnv.state_state_attr
-        data[("obs", "obs-task", "task")].edge_attr = self.state_task_attr_weighted(obs)
+        data[("obs", "obs-task", "task")].edge_attr = self.state_task_attr_weighted(
+            obs, goal
+        )
         data[("task", "task-actor", "actor")].edge_index = self.task_task_sparse
         data[("task", "task-critic", "critic")].edge_index = self.task_to_single
         return data.to(device)

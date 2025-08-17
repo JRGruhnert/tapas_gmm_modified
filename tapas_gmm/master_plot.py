@@ -348,7 +348,8 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    default = f"results/{dict_config.nt.value}/{dict_config.tag}/"
+    # default = f"results/{dict_config.nt.value}/{dict_config.tag}/"
+    default = "results/gnn4/experiment_1_1/"
     analyzer = RolloutAnalyzer(default)
     analyzer.load_all_batches()
     analyzer.print_analysis()
