@@ -1,8 +1,9 @@
 from enum import Enum
-from functools import cached_property
 import json
 import pathlib
+import pprint
 from loguru import logger
+import numpy as np
 import torch
 from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.state import State
@@ -20,60 +21,12 @@ from tapas_gmm.policy.models.tpgmm import (
 
 class TaskSpace(Enum):
     Minimal = "Minimal"
-    All = "All"
-    Unused = "Unused"
+    Normal = "Normal"
+    Full = "Full"
+    Debug = "Debug"
 
 
 class Task:
-    def __init__(
-        self,
-        name: str,
-        reversed: bool,
-        conditional: bool,
-        overrides: list[str],
-    ):
-        self._name: str = name
-        self._reversed: bool = reversed
-        self._conditional: bool = conditional
-        self._policy_name: str = "gmm"
-        self._overrides: list[str] = overrides
-        self._policy: GMMPolicy = self._load_policy()
-        self._task_parameters: dict[str, torch.Tensor] = {}
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def reversed(self) -> bool:
-        return self._reversed
-
-    @property
-    def conditional(self) -> bool:
-        return self._conditional
-
-    @property
-    def policy(self) -> Policy:
-        return self._policy
-
-    @property
-    def policy_name(self) -> str:
-        return self._policy_name
-
-    @property
-    def overrides(self) -> list[str]:
-        return self._overrides
-
-    @cached_property
-    def task_parameters(self) -> dict[str, torch.Tensor]:
-        if len(self._task_parameters) == 0:
-            raise ValueError("Task parameters have not been initialized.")
-        return self._task_parameters
-
-    @cached_property
-    def task_parameters_keys(self) -> set[str]:
-        return self._task_parameters.keys()
-
     @classmethod
     def from_json(cls, name: str, json_data: dict) -> "Task":
         """Create a Task instance from JSON data"""
@@ -109,31 +62,79 @@ class Task:
             raise FileNotFoundError(f"Tasks JSON file not found at {tasks_json_path}")
 
         with open(tasks_json_path, "r") as f:
-            tasks_data = json.load(f)
+            data: dict = json.load(f)
 
         # Filter tasks based on the requested state space
-        filtered_tasks = []
-
-        for ident, task_data in tasks_data.items():
+        filtered = []
+        for task_key, task_value in data.items():
             # Check if this task belongs to the requested space
-            task_space_str = task_data.get("space", "Unused")
+            task_space_list = task_value.get("space")
+            if task_space_list is None:
+                raise ValueError(f"Task {task_key} does not have a 'space' defined.")
 
-            include_task = False
+            if task_space.value in task_space_list:
+                task = cls.from_json(task_key, task_value)
+                filtered.append(task)
 
-            if task_space == TaskSpace.Minimal and task_space_str == "Minimal":
-                include_task = True
-            elif task_space == TaskSpace.All and task_space_str in ["Minimal", "All"]:
-                include_task = True
-            elif task_space == TaskSpace.Unused:
-                raise ValueError(
-                    "Unused space is not supported in convert_to_tasks method"
-                )
+        return filtered
 
-            if include_task:
-                task = cls.from_json(ident, task_data)
-                filtered_tasks.append(task)
+    def __init__(
+        self,
+        name: str,
+        reversed: bool,
+        conditional: bool,
+        overrides: list[str],
+    ):
+        self._name: str = name
+        self._reversed: bool = reversed
+        self._conditional: bool = conditional
+        self._policy_name: str = "gmm"
+        self._overrides_keys: list[str] = overrides
+        self._policy: GMMPolicy = self._load_policy()
+        self._task_parameters: dict[str, torch.Tensor] = {}
+        self._overrides: dict[str, np.ndarray] = {}
+        if self._reversed and len(self._overrides_keys) == 0:
+            # NOTE: Tapas safeguard.
+            # TODO: Remove this restriction in the future.
+            raise ValueError(
+                "Reversed Tasks without overrides can't work in the current Tapas Setup. Most definitely this is not intended."
+            )
 
-        return filtered_tasks
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def reversed(self) -> bool:
+        return self._reversed
+
+    @property
+    def conditional(self) -> bool:
+        return self._conditional
+
+    @property
+    def policy(self) -> Policy:
+        return self._policy
+
+    @property
+    def policy_name(self) -> str:
+        return self._policy_name
+
+    @property
+    def overrides(self) -> dict[str, np.ndarray]:
+        if len(self._overrides) != len(self._overrides_keys):
+            raise ValueError("Task overrides have not been initialized.")
+        return self._overrides
+
+    @property
+    def task_parameters(self) -> dict[str, torch.Tensor]:
+        if len(self._task_parameters) == 0:
+            raise ValueError("Task parameters have not been initialized.")
+        return self._task_parameters
+
+    @property
+    def task_parameters_keys(self) -> set[str]:
+        return self._task_parameters.keys()
 
     def _policy_checkpoint_name(self) -> pathlib.Path:
         return (
@@ -198,7 +199,7 @@ class Task:
         policy.eval()
         return policy
 
-    def initialize_task_parameters(self, states: list[State]):
+    def initialize_task_parameters(self, states: list[State], verbose: bool = False):
         """
         Initialize the task parameters based on the active states.
         """
@@ -207,36 +208,67 @@ class Task:
         tapas_tp: set[str] = set()
         for _, segment in enumerate(tpgmm.segment_frames):
             for _, frame_idx in enumerate(segment):
-                print(f"Frame {frame_idx}: {tpgmm.frame_mapping[frame_idx]}")
                 pos_str, rot_str = tpgmm.frame_mapping[frame_idx]
                 tapas_tp.add(pos_str)
                 tapas_tp.add(rot_str)
-        print(f"Tapas keys: {tapas_tp}")
+        # TODO: Currently assumes tapas tps are euler and quaternion
+        # My whole code does not generalize to other Task Parameterized models and state types
         for state in states:
-            selected, value = state.as_tp(
+            value = state.make_tp(
                 tpgmm.start_values[state.name],
                 tpgmm.end_values[state.name],
                 self.reversed,
-                tapas_tp,
+                True if state.name in tapas_tp else False,
             )
-            if selected:
+            if value is not None:
                 self._task_parameters[state.name] = value
+
+        if verbose:
+            logger.info(f"Initialized task parameters for {self.name}:")
+            logger.info(
+                "\n" + pprint.pformat(dict(self._task_parameters), indent=2, width=80)
+            )
+
+    def initialize_overrides(self, states: list[State], verbose: bool = False):
+        """
+        Initialize the task parameters based on the active states.
+        """
+        # TODO: Its a copy of initialize_task_parameters but only override states get loaded and also in reverse
+        # So basically normal since reversed is True
+        tpgmm: AutoTPGMM = self._policy.model
+        for state in states:
+            if state.name in self._overrides_keys:
+                value = state.make_tp(
+                    tpgmm.start_values[state.name],
+                    tpgmm.end_values[state.name],
+                    not self.reversed,  # NOTE: We want the opposite of the reverse trajectory
+                    True,  # NOTE: All States are True here
+                )
+                if value is None:
+                    raise ValueError(
+                        f"Failed to create override for state {state.name}. This should not happen."
+                    )
+                self._overrides[state.name] = value.numpy()
+        if verbose:
+            logger.info(f"Initialized overrides for {self.name}:")
+            logger.info(
+                "\n" + pprint.pformat(dict(self._overrides), indent=2, width=80)
+            )
 
     def distances(
         self,
         obs: MasterObservation,
-        goal: MasterObservation,  # For boolean states
+        goal: MasterObservation,
         states: list[State],
         pad: bool = False,
     ) -> torch.Tensor:
         task_features: list[torch.Tensor] = []
         for state in states:
             if state.name in self.task_parameters_keys:
-                value = state.tp_distance(
+                value = state.distance_to_tp(
                     obs.states[state.name],
-                    self._task_parameters[state.name],
                     goal.states[state.name],
-                    pad,
+                    self._task_parameters[state.name],
                 )
                 value = torch.tensor([value, 1.0]) if pad else torch.tensor(value)
             else:

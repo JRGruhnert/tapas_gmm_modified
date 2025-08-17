@@ -2,8 +2,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from omegaconf import OmegaConf, SCMode
 
-from tapas_gmm.master_project.state import State, StateSpace
-from tapas_gmm.master_project.task import Task, TaskSpace
+from tapas_gmm.master_project.dloader import DataLoader
+from tapas_gmm.master_project.state import StateSpace
+from tapas_gmm.master_project.task import TaskSpace
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
 from tapas_gmm.master_project.agent import MasterAgent, AgentConfig
 from tapas_gmm.master_project.networks import NetworkType
@@ -23,10 +24,15 @@ class MasterConfig:
 
 def train_agent(config: MasterConfig):
     # Initialize the environment and agent
-    tasks = Task.from_json_list(config.task_space)
-    states = State.from_json_list(config.state_space)
-    env = MasterEnv(config.env, states, tasks)
-    agent = MasterAgent(config.agent, config.nt, config.tag, states, tasks)
+    dloader = DataLoader(config.state_space, config.task_space, config.verbose)
+    env = MasterEnv(config.env, dloader.states, dloader.tasks)
+    agent = MasterAgent(
+        config.agent,
+        config.nt,
+        config.tag,
+        dloader.states,
+        dloader.tasks,
+    )
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)

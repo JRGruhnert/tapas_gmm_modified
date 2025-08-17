@@ -14,8 +14,8 @@ config = Config(
     data_naming=data_naming_config,
     dataset_config=scene_dataset_config,
     env=collect_env,
-    state_space=StateSpace.All,
-    task_space=TaskSpace.All,
+    state_space=StateSpace.Normal,
+    task_space=TaskSpace.Normal,
     policy_type=PolicyEnum.MANUAL,
     policy=None,
 )

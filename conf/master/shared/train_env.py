@@ -6,7 +6,7 @@ env = MasterEnvConfig(
     debug_vis=False,
 )
 
-test_env = MasterEnvConfig(
+debug_env = MasterEnvConfig(
     calvin_config=calvin_env_config,
     debug_vis=True,
 )

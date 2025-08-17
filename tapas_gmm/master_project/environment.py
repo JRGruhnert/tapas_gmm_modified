@@ -3,6 +3,7 @@ from enum import Enum
 from functools import cached_property
 from loguru import logger
 import numpy as np
+import re
 import torch
 
 from calvin_env.envs.observation import CalvinObservation
@@ -87,12 +88,12 @@ class MasterEnv:
         viz_dict = {}  # TODO: Make available
         task.policy.reset_episode(self.env)
         # Batch prediction for the given observation
+        # In your evaluation, before calling policy.predict():
+        obs = self.make_tapas_format(self.current_calvin, task, self.goal)
         try:
-            prediction, _ = task.policy.predict(
-                self.make_tapas_format(self.current_calvin, task, self.goal)
-            )
+            prediction, _ = task.policy.predict(obs)
             for action in prediction:
-                if len(action.gripper) is not 0:
+                if len(action.gripper) != 0:
                     self.last_gripper_action = action.gripper
                 ee_action = np.concatenate(
                     (
@@ -103,9 +104,6 @@ class MasterEnv:
                 self.current_calvin, _, _, _ = self.env.step(
                     ee_action, self.config.debug_vis, viz_dict
                 )
-                if verbose:
-                    print(self.current_calvin.ee_pose)
-                    print(self.current_calvin.ee_state)
                 self.current = MasterObservation(self.current_calvin)
 
         except FloatingPointError:
@@ -169,7 +167,7 @@ class MasterEnv:
         ##### Checking if goal is reached
         goal_reached = True
         for state in self.states:
-            goal_reached = state.validate(
+            goal_reached = state.evaluate_success_condition(
                 self.current.states[state.name],
                 self.goal.states[state.name],
                 self.env.surfaces,
@@ -196,13 +194,11 @@ class MasterEnv:
             reward = torch.Tensor([0.0])
         else:
             reward = torch.Tensor([obs.reward])
-
+        print(obs.ee_state)
         joint_pos = torch.Tensor(obs.joint_pos)
         joint_vel = torch.Tensor(obs.joint_vel)
         ee_pose = torch.Tensor(obs.ee_pose)
         ee_state = torch.Tensor([obs.ee_state])
-        print(f"Gripper state: {obs.ee_state}")
-        print(f"Gripper pose: {obs.ee_pose}")
         camera_obs = {}
         for cam in obs.camera_names:
             rgb = obs.rgb[cam].transpose((2, 0, 1)) / 255
@@ -223,33 +219,76 @@ class MasterEnv:
             {"_order": CameraOrder._create(obs.camera_names)} | camera_obs
         )
         object_poses_dict = obs.object_poses
-        # Changing Taskparameter for reverse models
         if task is not None and goal is not None and task.reversed:
-            for state_name in task.overrides:
-                if state_name is "ee":
+            # NOTE: This is only a hack to make reversed tapas models work
+            # TODO: Update this when possible
+            logger.debug(f"Overriding Tapas Task {task.name}")
+
+            for state_name, state_value in task.overrides.items():
+                print(state_name)
+                print(state_value)
+                match_position = re.search(r"(.+?)_(?:position)", state_name)
+                match_rotation = re.search(r"(.+?)_(?:rotation)", state_name)
+                match_scalar = re.search(r"(.+?)_(?:scalar)", state_name)
+                if state_name == "ee_position":
                     ee_pose = torch.cat(
                         [
-                            task.task_parameters[f"{state_name}_position"],
-                            task.task_parameters[f"{state_name}_rotation"],
+                            torch.Tensor(state_value),
+                            torch.Tensor(obs.ee_pose[-4:]),
                         ]
                     )
-                    ee_state = task.task_parameters[f"{state_name}_scalar"]
-                else:
-                    object_poses_dict[state_name] = torch.cat(
+                elif state_name == "ee_rotation":
+                    ee_pose = torch.cat(
                         [
-                            goal.states[f"{state_name}_position"],
-                            goal.states[f"{state_name}_rotation"],
+                            torch.Tensor(obs.ee_pose[:3]),
+                            torch.Tensor(state_value),
                         ]
                     )
+                elif state_name == "ee_scalar":
+                    ee_state = torch.Tensor(state_value)
+
+                # TODO: Evaluate if goal state is correct here
+                elif match_position:
+                    object_poses_dict[match_position.group(1)] = np.concatenate(
+                        [
+                            goal.states[f"{match_position.group(1)}_position"].numpy(),
+                            object_poses_dict[match_position.group(1)][-4:],
+                        ]
+                    )
+                elif match_rotation:
+                    object_poses_dict[match_rotation.group(1)] = np.concatenate(
+                        [
+                            object_poses_dict[match_rotation.group(1)][:3],
+                            goal.states[f"{match_rotation.group(1)}_rotation"].numpy(),
+                        ]
+                    )
+                elif match_scalar:
+                    object_poses_dict[match_scalar.group(1)] = goal.states[
+                        f"{match_scalar.group(1)}_scalar"
+                    ].numpy()
+                else:
+                    raise ValueError(f"Unknown state name: {state_name}")
 
         object_poses = dict_to_tensordict(
-            {name: torch.Tensor(pose) for name, pose in object_poses_dict.items()},
+            {
+                name: torch.Tensor(pose)
+                for name, pose in sorted(object_poses_dict.items())
+            },
         )
-        # print(f"Object poses: {object_poses_dict}")
         object_states = dict_to_tensordict(
-            {name: torch.Tensor([state]) for name, state in obs.object_states.items()},
+            {
+                name: torch.Tensor([state])
+                for name, state in sorted(obs.object_states.items())
+            },
         )
-        # print(f"Object states: {obs.object_states}")
+        for name, pose in object_poses.items():
+            print(name)
+            print(pose.shape)
+            print(isinstance(pose, torch.Tensor))
+        print(ee_state.shape)
+        print(isinstance(ee_state, torch.Tensor))
+        print(ee_pose.shape)
+        print(isinstance(ee_pose, torch.Tensor))
         obs = SceneObservation(
             feedback=reward,
             action=action,

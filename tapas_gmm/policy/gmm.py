@@ -192,11 +192,11 @@ class GMMPolicy(Policy):
         info = {}
 
         frame_trans, frame_quats, viz_encoding = self._get_frame_trans(obs)
-
         info["viz_encoding"] = viz_encoding
 
         if self.config.batch_predict_in_t_models and self._time_based:
             if self._prediction_batch is None:
+                print("Creating prediction batch")
                 self._prediction_batch = self._create_prediction_batch(
                     obs=obs, frame_trans=frame_trans, frame_quats=frame_quats
                 )
@@ -223,12 +223,15 @@ class GMMPolicy(Policy):
                 info["done"] = self._last_prediction is None
             else:
                 prediction = self._prediction_batch.step()
+                print("Step prediction batch")
+                print(f"Raw Prediction: {prediction}")
                 info["done"] = False
             action = (
                 self._postprocess_prediction(obs.ee_pose.numpy(), prediction.ee)
                 if self.config.postprocess_prediction
                 else np.concatenate((prediction.ee, prediction.gripper))
             )
+
             self._last_prediction = prediction
 
         else:
@@ -244,6 +247,7 @@ class GMMPolicy(Policy):
             action[-1] = self._binary_gripper_action(action[-1])
 
         info["segment"] = self.model._online_active_segment
+        print(f"Action: {action}")
         return action, info
 
     def _get_frame_trans(self, obs):
@@ -358,16 +362,16 @@ class GMMPolicy(Policy):
             inputs.append(inp)
 
             first_step = False
-
+        print("Hey1")
         if self.config.invert_prediction_batch:
             prediction_raw = prediction_raw[::-1]
-
+        print("Hey1")
         stacked_pred = np.stack(prediction_raw)
         raw_traj = RobotTrajectory.from_np(
             ee=stacked_pred[:, :7], gripper=stacked_pred[:, 7:]
         )
         # TODO: Here comes the error from. prediction predicts robot trajectory
-
+        print("Hey3")
         # if self.config.invert_prediction_batch:
         #     raw_traj = raw_traj.invert()
 

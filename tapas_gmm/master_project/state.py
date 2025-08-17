@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 from functools import cached_property
 from loguru import logger
@@ -10,8 +11,9 @@ from typing import List
 
 class StateSpace(Enum):
     Minimal = "Minimal"
-    All = "All"
-    Unused = "Unused"
+    Normal = "Normal"
+    Full = "Full"
+    Debug = "Debug"
 
 
 class StateType(Enum):
@@ -29,20 +31,34 @@ class StateSuccess(Enum):
     Ignore = "Ignore"  # Is not used in Success calculation
 
 
-class State:
-    def __init__(
-        self,
+class State(ABC):
+    _state_registry = {}
+
+    @classmethod
+    def register_type(cls, state_type: StateType):
+        """Decorator to register state types"""
+
+        def decorator(state_class):
+            cls._state_registry[state_type] = state_class
+            return state_class
+
+        return decorator
+
+    @classmethod
+    def _create_state_by_type(
+        cls,
+        state_type: StateType,
         name: str,
-        type: StateType,
         success: StateSuccess,
         lower_bound: torch.Tensor,
         upper_bound: torch.Tensor,
-    ):
-        self._name = name
-        self._type = type
-        self._success = success
-        self._lower_bound = lower_bound
-        self._upper_bound = upper_bound
+    ) -> "State":
+        """Factory method using registry"""
+        if state_type not in cls._state_registry:
+            raise ValueError(f"Unknown state type: {state_type}")
+
+        state_class = cls._state_registry[state_type]
+        return state_class(name, state_type, success, lower_bound, upper_bound)
 
     @classmethod
     def from_json(cls, name: str, json_data: dict) -> "State":
@@ -66,13 +82,13 @@ class State:
         # Prepare common arguments for all state types
         common_args = {
             "name": name,
-            "type": state_type,
+            "state_type": state_type,
             "success": StateSuccess(json_data["success"]),
             "lower_bound": torch.tensor(json_data["lower_bound"], dtype=torch.float32),
             "upper_bound": torch.tensor(json_data["upper_bound"], dtype=torch.float32),
         }
         # Default implementation for base class or when called directly on subclasses
-        return cls(**common_args)
+        return cls._create_state_by_type(**common_args)
 
     @classmethod
     def from_json_list(cls, state_space: StateSpace) -> List["State"]:
@@ -84,38 +100,46 @@ class State:
             raise FileNotFoundError(f"States JSON file not found at {states_json_path}")
 
         with open(states_json_path, "r") as f:
-            states_data = json.load(f)
+            data: dict = json.load(f)
 
         # Filter states based on the requested state space
-        filtered_states = []
+        filtered = []
 
-        for ident, state_data in states_data.items():
+        for state_key, state_value in data.items():
             # Check if this state belongs to the requested space
-            state_space_str = state_data.get("space", "Unused")
+            state_space_list = state_value.get("space")
+            if state_space_list is None:
+                raise ValueError(f"State {state_key} does not have a 'space' defined.")
 
-            # Apply filtering logic based on StateSpace hierarchy:
-            # SMALL (0) includes only SMALL states
-            # ALL (1) includes SMALL + ALL states
-            # UNUSED (2) includes only UNUSED states
-            include_state = False
+            if state_space.value in state_space_list:
+                state = cls.from_json(state_key, state_value)
+                filtered.append(state)
 
-            if state_space == StateSpace.Minimal and state_space_str == "Minimal":
-                include_state = True
-            elif state_space == StateSpace.All and state_space_str in [
-                "Minimal",
-                "All",
-            ]:
-                include_state = True
-            elif state_space == StateSpace.Unused:
-                raise ValueError(
-                    "Unused space is not supported in convert_to_states method"
-                )
+        return filtered
 
-            if include_state:
-                state = cls.from_json(ident, state_data)
-                filtered_states.append(state)
+    def __init__(
+        self,
+        name: str,
+        type: StateType,
+        success: StateSuccess,
+        lower_bound: torch.Tensor,
+        upper_bound: torch.Tensor,
+    ):
+        self._name = name
+        self._type = type
+        self._success = success
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
+        assert self._lower_bound.shape == self._upper_bound.shape
 
-        return filtered_states
+        if self._type == StateType.Euler_Angle or self._type == StateType.Axis_Angle:
+            assert self._lower_bound.shape == self._upper_bound.shape == (3,)
+        elif self._type == StateType.Range:
+            assert self._lower_bound.shape == self._upper_bound.shape == (1,)
+        if self._type != StateType.Euler_Angle and self._type != StateType.Axis_Angle:
+            assert (
+                success is not StateSuccess.Area
+            ), f"State {self._name} cannot have Area based success evaluation, because it is not a position-based state."
 
     @property
     def name(self) -> str:
@@ -128,7 +152,7 @@ class State:
         return self._type
 
     @property
-    def success(self) -> StateSuccess:
+    def success_mode(self) -> StateSuccess:
         """Returns the StateSuccess of the state."""
         return self._success
 
@@ -152,17 +176,167 @@ class State:
         """Returns the relative threshold for the state."""
         return self.threshold * (self.upper_bound - self.lower_bound)
 
+    @abstractmethod
+    def value(self, x: torch.Tensor) -> torch.Tensor:
+        """Returns the value of the state as a tensor."""
+        raise NotImplementedError("Must be implemented by subclasses.")
+
+    @abstractmethod
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        raise NotImplementedError("Must be implemented by subclasses.")
+
+    @abstractmethod
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        raise NotImplementedError("Must be implemented by subclasses.")
+
+    @abstractmethod
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        """Returns the mean of the given tensor values."""
+        raise NotImplementedError("Must be implemented by subclasses.")
+
+    def evaluate_success_condition(
+        self, obs: torch.Tensor, goal: torch.Tensor, surfaces: dict[str, np.ndarray]
+    ) -> bool:
+        if self.success_mode == StateSuccess.Area:
+            return self.check_area_states(obs, goal, surfaces)
+        elif self.success_mode == StateSuccess.Precise:
+            return self.distance_to_goal(obs, goal).item() > self.threshold
+        elif self.success_mode == StateSuccess.Ignore:
+            return True
+        else:
+            raise NotImplementedError(
+                f"State Success: {self.success_mode} is not implemented."
+            )
+
+    def check_area_states(
+        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
+    ) -> bool:
+        area_x = None
+        area_y = None
+        for name, (min_corner, max_corner) in surfaces.items():
+            box_min = np.array(min_corner)
+            box_max = np.array(max_corner)
+            if np.all(x >= box_min) and np.all(x <= box_max):
+                area_x = name
+            if np.all(y >= box_min) and np.all(y <= box_max):
+                area_y = name
+        if area_x is None or area_y is None:
+            logger.warning(
+                f"Point {x} or {y} is not in any defined area. Areas: {surfaces.keys()}"
+            )
+        return area_x == area_y
+
+
+class LinearState(State):
     def normalize(self, x: torch.Tensor) -> torch.Tensor:
         """
         Normalize a value x to the range [0, 1] based on min and max.
         """
         return (x - self.lower_bound) / (self.upper_bound - self.lower_bound)
 
+    def value(self, x: torch.Tensor) -> torch.Tensor:
+        return self.normalize(x)
+
+
+class DiscreteState(State):
+    def value(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+
+@State.register_type(StateType.Euler_Angle)
+class EulerState(LinearState):
+
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        nx = self.normalize(current)
+        ny = self.normalize(tp)
+        return torch.linalg.vector_norm(nx - ny)
+
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return self.distance_to_tp(current, goal, goal)
+
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        if not tapas_selection:
+            return None  # Tapas didn't select this state
+        if reversed:
+            return end.mean(dim=0)
+        return start.mean(dim=0)
+
+
+@State.register_type(StateType.Quaternion)
+class QuaternionState(State):
     def normalize_quat(self, x: torch.Tensor) -> torch.Tensor:
         x = x / torch.norm(x)
         if x[3] < 0:
             return -x
         return x
+
+    def value(self, x):
+        return self.normalize_quat(x)
+
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        nx = self.normalize_quat(current)
+        ny = self.normalize_quat(tp)
+        dot = torch.clamp(torch.abs(torch.dot(nx, ny)), -1.0, 1.0)
+        return 2.0 * torch.arccos(dot)
+
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return self.distance_to_tp(current, goal, goal)
+
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        if not tapas_selection:
+            return None  # Tapas didn't select this state
+        if reversed:
+            return self.quaternion_mean(end)
+        return self.quaternion_mean(start)
 
     def quaternion_mean(self, quaternions: torch.Tensor) -> torch.Tensor:
         """
@@ -182,104 +356,6 @@ class State:
         # Swap back to (x, y, z, w)
         mean_quat_xyzw = mean_quat[[1, 2, 3, 0]]
         return mean_quat_xyzw
-
-    def value(self, x: torch.Tensor) -> torch.Tensor:
-        """Returns the value of the state as a tensor."""
-        if (
-            self.type == StateType.Euler_Angle
-            or self.type == StateType.Axis_Angle
-            or self.type == StateType.Range
-        ):
-            return self.normalize(x)
-        elif self.type == StateType.Quaternion:
-            return self.normalize_quat(x)
-        elif self.type == StateType.Boolean or self.type == StateType.Flip:
-            # No need to normalize or clamp boolean states
-            # as they are already in {0, 1} range.
-            return x
-        else:
-            raise NotImplementedError(
-                f"Type {self.type} is not implemented yet. Please implement the value method for {self.type} type."
-            )
-
-    def tp_distance(
-        self,
-        current: torch.Tensor,
-        tp: torch.Tensor,
-        goal: torch.Tensor = None,
-    ) -> torch.Tensor:
-        """Returns the distance of the state as a tensor."""
-        if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
-            nx = self.normalize(current)
-            ny = self.normalize(tp)
-            return torch.linalg.vector_norm(nx - ny)
-        elif self.type == StateType.Quaternion:
-            nx = self.normalize_quat(current)
-            ny = self.normalize_quat(tp)
-            dot = torch.clamp(torch.abs(torch.dot(nx, ny)), -1.0, 1.0)
-            return 2.0 * torch.arccos(dot)
-        elif self.type == StateType.Range:
-            nx = self.normalize(current)
-            ny = self.normalize(tp)
-            return torch.abs(nx - ny)
-        elif self.type == StateType.Boolean:
-            return torch.abs(current - tp)
-        elif self.type == StateType.Flip:
-            if goal is None:
-                return torch.abs(current - tp)  # Distance to the target point
-            return tp - torch.abs(current - goal)  # Flips distance
-        else:
-            raise ValueError(f"Unknown state type: {self.type}")
-
-    def as_tp(
-        self,
-        start: torch.Tensor,
-        end: torch.Tensor,
-        reversed: bool,
-        object_tps: list[str],
-    ) -> tuple[bool, torch.Tensor]:
-        """Returns the mean of the given tensor values."""
-        if self.name not in object_tps and (
-            self.type == StateType.Euler_Angle
-            or self.type == StateType.Axis_Angle
-            or self.type == StateType.Quaternion
-        ):
-            return False, None  # Ignore if not in object_tps
-        if self.type == StateType.Euler_Angle or self.type == StateType.Axis_Angle:
-            if reversed:
-                return True, end.mean(dim=0)
-            return True, start.mean(dim=0)
-        elif self.type == StateType.Quaternion:
-            if reversed:
-                return True, self.quaternion_mean(end)
-            return True, self.quaternion_mean(start)
-        elif self.type == StateType.Range:
-            if reversed:
-                std = end.std(dim=0)
-                if (std < self.relative_threshold).all():
-                    return True, end.mean(dim=0)
-            else:
-                std = start.std(dim=0)
-                if (std < self.relative_threshold).all():
-                    return True, start.mean(dim=0)
-            return False, None  # Not constant enough
-        elif self.type == StateType.Boolean:
-            if reversed:
-                std = end.std(dim=0)
-                if (std == 0).all():
-                    return True, end.mean(dim=0)
-            else:
-                std = start.std(dim=0)
-                if (std == 0).all():
-                    return True, start.mean(dim=0)
-            return False, None  # Not constant enough
-        elif self.type == StateType.Flip:
-            # Check if end is always the opposite of start
-            if (end == (1 - start)).all(dim=0).all():
-                return True, torch.tensor([1.0])  # Flip state
-            return False, None
-        else:
-            raise ValueError(f"Unknown state type: {self.type}")
 
     def rotation_mean_exp_map(self, rotations: torch.Tensor) -> torch.Tensor:
         """
@@ -317,38 +393,124 @@ class State:
         else:
             return torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
 
-    def validate(
-        self, obs: torch.Tensor, goal: torch.Tensor, surfaces: dict[str, np.ndarray]
-    ) -> bool:
-        if self.success == StateSuccess.Area:
-            if self.type is not StateType.Euler_Angle:
-                raise ValueError(
-                    f"State type {self.type} doesn't support area based evaluation."
-                )
-            return self.check_area_states(obs, goal, surfaces)
-        elif self.success == StateSuccess.Precise:
-            return self.tp_distance(obs, goal).item() > self.threshold
-        elif self.success == StateSuccess.Ignore:
-            return True  # Always True cause ignored
-        else:
-            raise NotImplementedError(
-                f"State Success type: {self.success} is not implemented."
-            )
 
-    def check_area_states(
-        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
-    ) -> bool:
-        area_x = None
-        area_y = None
-        for name, (min_corner, max_corner) in surfaces.items():
-            box_min = np.array(min_corner)
-            box_max = np.array(max_corner)
-            if np.all(x >= box_min) and np.all(x <= box_max):
-                area_x = name
-            if np.all(y >= box_min) and np.all(y <= box_max):
-                area_y = name
-        if area_x is None or area_y is None:
-            logger.warning(
-                f"Point {x} or {y} is not in any defined area. Areas: {surfaces.keys()}"
-            )
-        return area_x == area_y
+@State.register_type(StateType.Range)
+class RangeState(LinearState):
+
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        nx = self.normalize(current)
+        ny = self.normalize(tp)
+        return torch.abs(nx - ny)
+
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return self.distance_to_tp(current, goal, goal)
+
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        if reversed:
+            std = end.std(dim=0)
+            if (std < self.relative_threshold).all():
+                return end.mean(dim=0)
+        else:
+            std = start.std(dim=0)
+            if (std < self.relative_threshold).all():
+                return start.mean(dim=0)
+        return None  # Not constant enough
+
+
+@State.register_type(StateType.Boolean)
+class BooleanState(DiscreteState):
+
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        return torch.abs(current - tp)
+
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return self.distance_to_tp(current, goal, goal)
+
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        if reversed:
+            std = end.std(dim=0)
+            if (std < self.relative_threshold).all():
+                return end.mean(dim=0)
+        else:
+            std = start.std(dim=0)
+            if (std < self.relative_threshold).all():
+                return start.mean(dim=0)
+        return None  # Not constant enough
+
+        return None  # Not constant enough
+        std_end = end.std(dim=0)
+        std_start = start.std(dim=0)
+        mean_start = start.mean(dim=0)
+        mean_end = end.mean(dim=0)
+        # Basically checks if the boolean switches state consistently
+        if not (std_end == std_start).all() and (mean_end == mean_start).all():
+            if reversed:
+                return mean_end
+            else:
+                return mean_start
+        return None  # Boolean state not relevant
+
+
+@State.register_type(StateType.Flip)
+class FlipState(DiscreteState):
+
+    def distance_to_tp(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+        tp: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return tp - torch.abs(current - goal)  # Flips distance
+
+    def distance_to_goal(
+        self,
+        current: torch.Tensor,
+        goal: torch.Tensor,
+    ) -> torch.Tensor:
+        """Returns the distance of the state as a tensor."""
+        return torch.abs(current - goal)
+
+    def make_tp(
+        self,
+        start: torch.Tensor,
+        end: torch.Tensor,
+        reversed: bool,
+        tapas_selection: bool,
+    ) -> torch.Tensor | None:
+        """Returns the mean of the given tensor values."""
+        if (end == (1 - start)).all(dim=0).all():
+            return torch.tensor([1.0])  # Flip state
+        return None

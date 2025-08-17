@@ -121,23 +121,6 @@ class ActorCriticBase(nn.Module, ABC):
             if vals  # only include non-empty
         }
 
-    def state_type_dict_distances(
-        self,
-        obs1: MasterObservation,
-        obs2: MasterObservation,
-    ) -> dict[StateType, torch.Tensor]:
-        grouped = {t: [] for t in StateType}
-        for state in self.states:
-            distance = state.tp_distance(
-                obs1.states[state.name], obs2.states[state.name]
-            )
-            grouped[state.type].append(distance)
-        return {
-            t: torch.stack(vals).float()
-            for t, vals in grouped.items()
-            if vals  # only include non-empty
-        }
-
 
 class BaselineBase(ActorCriticBase):
     def to_batch(

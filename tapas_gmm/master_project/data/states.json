@@ -1,304 +1,212 @@
 {
-    "ee_position": {
-        "type": "Euler",
-        "space": "Minimal",
-        "success": "Precise",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "base__slide_position": {
-        "type": "Euler",
-        "space": "Minimal",
-        "success": "Precise",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "base__drawer_position": {
-        "type": "Euler",
-        "space": "Minimal",
-        "success": "Precise",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "base__button_position": {
-        "type": "Euler",
-        "space": "Minimal",
-        "success": "Precise",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "base__switch_position": {
-        "type": "Euler",
-        "space": "Unused",
-        "success": "Ignore",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "lightbulb_position": {
-        "type": "Euler",
-        "space": "Unused",
-        "success": "Ignore",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "led_position": {
-        "type": "Euler",
-        "space": "Minimal",
-        "success": "Precise",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "block_red_position": {
-        "type": "Euler",
-        "space": "All",
-        "success": "Area",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "block_blue_position": {
-        "type": "Euler",
-        "space": "All",
-        "success": "Area",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "block_pink_position": {
-        "type": "Euler",
-        "space": "All",
-        "success": "Area",
-        "lower_bound": [
-            -1.0,
-            -1.0,
-            -1.0
-        ],
-        "upper_bound": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
-    "ee_rotation": {
-        "type": "Quat",
-        "space": "Minimal",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "base__slide_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "base__drawer_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "base__button_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "base__switch_rotation": {
-        "type": "Quat",
-        "space": "Unused",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "lightbulb_rotation": {
-        "type": "Quat",
-        "space": "Unused",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "led_rotation": {
-        "type": "Quat",
-        "space": "Minimal",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "block_red_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "block_blue_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "block_pink_rotation": {
-        "type": "Quat",
-        "space": "All",
-        "success": "Ignore",
-        "lower_bound": [],
-        "upper_bound": []
-    },
-    "ee_scalar": {
-        "type": "Bool",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "Minimal",
-        "success": "Precise"
-    },
-    "base__slide_scalar": {
-        "type": "Range",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            0.28
-        ],
-        "space": "Minimal",
-        "success": "Precise"
-    },
-    "base__drawer_scalar": {
-        "type": "Range",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            0.22
-        ],
-        "space": "Minimal",
-        "success": "Precise"
-    },
-    "base__button_scalar": {
-        "type": "Flip",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "Unused",
-        "success": "Ignore"
-    },
-    "base__switch_scalar": {
-        "type": "Range",
-        "lower_bound": [
-            0.0
-        ],
-        "upper_bound": [
-            0.088
-        ],
-        "space": "Unused",
-        "success": "Ignore"
-    },
-    "lightbulb_scalar": {
-        "type": "Flip",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "Unused",
-        "success": "Ignore"
-    },
-    "led_scalar": {
-        "type": "Flip",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "Minimal",
-        "success": "Precise"
-    },
-    "block_red_scalar": {
-        "type": "Bool",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "All",
-        "success": "Precise"
-    },
-    "block_blue_scalar": {
-        "type": "Bool",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "All",
-        "success": "Precise"
-    },
-    "block_pink_scalar": {
-        "type": "Bool",
-        "lower_bound": [],
-        "upper_bound": [],
-        "space": "All",
-        "success": "Precise"
-    }
+  "ee_position": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Euler",
+    "success": "Precise",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "base__slide_position": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Euler",
+    "success": "Precise",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "base__drawer_position": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Euler",
+    "success": "Precise",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "base__button_position": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Euler",
+    "success": "Precise",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "base__switch_position": {
+    "space": [],
+    "type": "Euler",
+    "success": "Ignore",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "lightbulb_position": {
+    "space": [],
+    "type": "Euler",
+    "success": "Ignore",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "led_position": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Euler",
+    "success": "Precise",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "block_red_position": {
+    "space": ["Debug", "Normal"],
+    "type": "Euler",
+    "success": "Area",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "block_blue_position": {
+    "space": ["Debug", "Normal"],
+    "type": "Euler",
+    "success": "Area",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "block_pink_position": {
+    "space": ["Debug", "Normal"],
+    "type": "Euler",
+    "success": "Area",
+    "lower_bound": [-1.0, -1.0, -1.0],
+    "upper_bound": [1.0, 1.0, 1.0]
+  },
+  "ee_rotation": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__slide_rotation": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__drawer_rotation": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__button_rotation": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__switch_rotation": {
+    "space": [],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "lightbulb_rotation": {
+    "space": [],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "led_rotation": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Quat",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_red_rotation": {
+    "space": ["Debug", "Normal"],
+    "type": "Quat",
+    "success": "Ignore",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_blue_rotation": {
+    "space": ["Debug", "Normal"],
+    "type": "Quat",
+    "success": "Ignore",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_pink_rotation": {
+    "space": ["Debug", "Normal"],
+    "type": "Quat",
+    "success": "Ignore",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "ee_scalar": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Bool",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__slide_scalar": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Range",
+    "success": "Precise",
+    "lower_bound": [0.0],
+    "upper_bound": [0.28]
+  },
+  "base__drawer_scalar": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Range",
+    "success": "Precise",
+    "lower_bound": [0.0],
+    "upper_bound": [0.22]
+  },
+  "base__button_scalar": {
+    "space": ["Debug", "Minimal", "Normal"],
+    "type": "Flip",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "base__switch_scalar": {
+    "space": [],
+    "type": "Range",
+    "success": "Precise",
+    "lower_bound": [0.0],
+    "upper_bound": [0.088]
+  },
+  "lightbulb_scalar": {
+    "space": [],
+    "type": "Flip",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "led_scalar": {
+    "space": [],
+    "type": "Flip",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_red_scalar": {
+    "space": ["Debug", "Normal"],
+    "type": "Bool",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_blue_scalar": {
+    "space": ["Debug", "Normal"],
+    "type": "Bool",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  },
+  "block_pink_scalar": {
+    "space": ["Debug", "Normal"],
+    "type": "Bool",
+    "success": "Precise",
+    "lower_bound": [],
+    "upper_bound": []
+  }
 }

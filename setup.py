@@ -75,8 +75,10 @@ setuptools.setup(
             "tapas-collect = tapas_gmm.tapas_collect:entry_point",
             "tapas-eval = tapas_gmm.tapas_eval:entry_point",
             "master-train = tapas_gmm.master_train:entry_point",
-            "master-eval = tapas_gmm.master_eval:entry_point",
+            "master-retrain = tapas_gmm.master_retrain:entry_point",
+            "master-debug = tapas_gmm.master_debug:entry_point",
             "master-plot = tapas_gmm.master_plot:entry_point",
+            "master-eval = tapas_gmm.master_eval:entry_point",
         ]
     },
 )

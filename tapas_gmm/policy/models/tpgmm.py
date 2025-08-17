@@ -1208,7 +1208,7 @@ class TPGMM:
                     fixed_frames=self._fix_frames,
                     pos_only=self.config.position_only,
                     skip_quat_dim=self.skip_quaternion_dim,
-                    add_action_dim=self.config.config.add_action_component,
+                    add_action_dim=self.config.add_action_component,
                     action_as_orientation=self.config.action_as_orientation,
                     action_with_magnitude=self.config.action_with_magnitude,
                     add_gripper_action=self.config.add_gripper_action,
