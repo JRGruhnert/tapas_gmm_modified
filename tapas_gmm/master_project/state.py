@@ -22,7 +22,7 @@ class StateType(Enum):
     Quaternion = "Quat"
     Range = "Range"
     Boolean = "Bool"
-    Flip = "Flip"  # Special type for flipping the state, e.g., for boolean states
+    Flip = "Flip"  # Special boolean type for flipping the distance
 
 
 class StateSuccess(Enum):
@@ -209,6 +209,7 @@ class State(ABC):
         tapas_selection: bool,
     ) -> torch.Tensor | None:
         """Returns the mean of the given tensor values."""
+        # TODO: param: tapas_selection should be removed to generalize this method
         raise NotImplementedError("Must be implemented by subclasses.")
 
     def evaluate_success_condition(
@@ -348,7 +349,7 @@ class QuaternionState(State):
         quats = quaternions[:, [3, 0, 1, 2]]
         quats = quats / quats.norm(dim=1, keepdim=True)
         A = quats.t() @ quats
-        eigenvalues, eigenvectors = torch.linalg.eigh(A)
+        _, eigenvectors = torch.linalg.eigh(A)
         mean_quat = eigenvectors[:, -1]
         # Ensure positive scalar part
         if mean_quat[0] < 0:

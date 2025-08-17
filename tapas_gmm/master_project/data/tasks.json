@@ -96,7 +96,7 @@
     "overrides": []
   },
   "PlaceRedTable": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -104,11 +104,12 @@
       "ee_rotation",
       "ee_position",
       "block_red_rotation",
-      "block_red_position"
+      "block_red_position",
+      "block_red_scalar"
     ]
   },
   "PlacePinkTable": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -116,11 +117,12 @@
       "ee_rotation",
       "ee_position",
       "block_pink_rotation",
-      "block_pink_position"
+      "block_pink_position",
+      "block_pink_scalar"
     ]
   },
   "PlaceBlueTable": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -128,11 +130,12 @@
       "ee_rotation",
       "ee_position",
       "block_blue_rotation",
-      "block_blue_position"
+      "block_blue_position",
+      "block_blue_scalar"
     ]
   },
   "PlaceRedDrawer": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [
@@ -140,11 +143,12 @@
       "ee_rotation",
       "ee_position",
       "block_red_rotation",
-      "block_red_position"
+      "block_red_position",
+      "block_red_scalar"
     ]
   },
   "PlacePinkDrawer": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [
@@ -152,11 +156,12 @@
       "ee_rotation",
       "ee_position",
       "block_pink_rotation",
-      "block_pink_position"
+      "block_pink_position",
+      "block_pink_scalar"
     ]
   },
   "PlaceBlueDrawer": {
-    "space": ["Normal"],
+    "space": ["Debug", "Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [
@@ -164,7 +169,8 @@
       "ee_rotation",
       "ee_position",
       "block_blue_rotation",
-      "block_blue_position"
+      "block_blue_position",
+      "block_blue_scalar"
     ]
   }
 }
