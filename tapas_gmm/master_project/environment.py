@@ -51,16 +51,8 @@ class MasterEnv:
         self.spawn_surfaces: dict[str, torch.Tensor] = {
             k: torch.from_numpy(np.array(v)) for k, v in self.env.surfaces.items()
         }
-        self.eval_surfaces: dict[str, torch.Tensor] = {}
-        self.eval_surfaces["table"] = self.spawn_surfaces["table"]
-        self.eval_surfaces["drawer"] = torch.stack(
-            [
-                self.spawn_surfaces["drawer_open"][0],
-                self.spawn_surfaces["drawer_closed"][1],
-            ]
-        )
-        self.eval_surfaces["drawer"] = self.add_surface_padding(
-            self.eval_surfaces["drawer"], padding_percent=0.1
+        self.eval_surfaces: dict[str, torch.Tensor] = self.make_eval_surfaces(
+            self.env.surfaces, 0.1
         )
         print(f"Spawn Surfaces: {self.spawn_surfaces}")
         print(f"Eval Surfaces: {self.eval_surfaces}")
@@ -68,6 +60,24 @@ class MasterEnv:
         self.last_gripper_action = [1.0]  # open
         self.steps_left = self.max_steps
         self.terminal = False
+
+    def make_eval_surfaces(
+        self, surfaces: dict[str, np.ndarray], padding_percent: float
+    ):
+        eval_surfaces: dict[str, np.ndarray] = surfaces
+        eval_surfaces["table"] = self.add_surface_padding(
+            eval_surfaces["table"], padding_percent
+        )
+        eval_surfaces["drawer_open"][0][0] -= 0.02
+        eval_surfaces["drawer_open"][1][0] += 0.02
+        eval_surfaces["drawer_closed"][0][0] -= 0.02
+        eval_surfaces["drawer_closed"][1][0] += 0.02
+        eval_surfaces["drawer_open"][0][1] -= 0.02
+        eval_surfaces["drawer_open"][1][1] += 0.02
+        eval_surfaces["drawer_closed"][0][1] -= 0.02
+        eval_surfaces["drawer_closed"][1][1] += 0.02
+
+        return {k: torch.from_numpy(np.array(v)) for k, v in eval_surfaces.items()}
 
     def add_surface_padding(self, surface, padding_percent: float):
         """Add padding to surface bounds in x and y directions"""
@@ -89,7 +99,7 @@ class MasterEnv:
             [x_max + x_padding, y_max + y_padding, z_max],
         ]
 
-        return torch.tensor(padded_surface, dtype=torch.float32)
+        return padded_surface
 
     @cached_property
     def max_steps(self) -> int:
