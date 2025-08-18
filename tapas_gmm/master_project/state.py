@@ -271,7 +271,8 @@ class LinearState(State):
         return (x - self.lower_bound) / (self.upper_bound - self.lower_bound)
 
     def value(self, x: torch.Tensor) -> torch.Tensor:
-        return self.normalize(x)
+        cx = torch.clamp(x, self.lower_bound, self.upper_bound)
+        return self.normalize(cx)
 
 
 class DiscreteState(State):
@@ -386,8 +387,10 @@ class RangeState(LinearState):
         goal: torch.Tensor,
         tp: torch.Tensor,
     ) -> float:
-        nx = self.normalize(current)
-        ny = self.normalize(tp)
+        cx = torch.clamp(current, self.lower_bound, self.upper_bound)
+        cy = torch.clamp(tp, self.lower_bound, self.upper_bound)
+        nx = self.normalize(cx)
+        ny = self.normalize(cy)
         return torch.abs(nx - ny).item()
 
     def distance_to_goal(

@@ -17,7 +17,6 @@ from tapas_gmm.utils.observation import (
     SingleCamObservation,
     dict_to_tensordict,
     empty_batchsize,
-    tensor_dict_equal,
 )
 
 
@@ -103,14 +102,8 @@ class MasterEnv:
 
     @cached_property
     def max_steps(self) -> int:
-        """Calculate the maximum number of steps allowed in the environment. Its a quick estimated based on the assumption that every tapas task is half a real task."""
-        max_steps = 0
-        for task in self.tasks:
-            if task.conditional:
-                max_steps += 3
-            else:
-                max_steps += 1
-        return max_steps
+        "Every Step is one task, so the maximum steps are the number of tasks. (Not that easy but for this environment it works)"
+        return len(self.tasks)
 
     def reset(self) -> tuple[MasterObservation, MasterObservation]:
         goal_calvin, _, _, _ = self.env.reset(settle_time=50)

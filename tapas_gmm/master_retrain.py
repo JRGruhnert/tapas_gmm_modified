@@ -2,65 +2,75 @@ from dataclasses import dataclass
 from datetime import datetime
 from omegaconf import OmegaConf, SCMode
 
+from tapas_gmm.master_project.dloader import DataLoader
+from tapas_gmm.master_project.state import StateSpace
+from tapas_gmm.master_project.task import TaskSpace
 from tapas_gmm.master_project.environment import MasterEnv, MasterEnvConfig
 from tapas_gmm.master_project.agent import MasterAgent, AgentConfig
+from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.utils.argparse import parse_and_build_config
 
 
 @dataclass
 class MasterConfig:
+    state_space: StateSpace
+    task_space: TaskSpace
     tag: str
+    nt: NetworkType
     agent: AgentConfig
     env: MasterEnvConfig
     verbose: bool = True
 
 
-def train_agent(config: MasterConfig):
+def train_agent(config: MasterConfig, checkpoint_path: str):
     # Initialize the environment and agent
-    env = MasterEnv(config.env)
-    tasks, states, tps = env.publish()
-    agent = MasterAgent(config.agent, tasks, states, tps)
+    dloader = DataLoader(config.state_space, config.task_space, config.verbose)
+    env = MasterEnv(config.env, dloader.states, dloader.tasks)
+    agent = MasterAgent(
+        config.agent,
+        config.nt,
+        config.tag,
+        dloader.states,
+        dloader.tasks,
+    )
+    agent.load(checkpoint_path, keep_epoch=False)
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
-    batch_start_time = datetime.now().replace(microsecond=0)
     stop_training = False
     while not stop_training:  # Training loop
+        start_time_batch = datetime.now().replace(microsecond=0)
         terminal = False
         batch_rdy = False
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
-            task_id = agent.act(obs, goal)
-            reward, terminal, obs = env.step(task_id)
+            task = agent.act(obs, goal)
+            reward, terminal, obs = env.step(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
-            train_start_time = datetime.now().replace(microsecond=0)
+            start_time_learning = datetime.now().replace(microsecond=0)
             stop_training = agent.learn(verbose=config.verbose)
-            train_end_time = datetime.now().replace(microsecond=0)
+            end_time_learning = datetime.now().replace(microsecond=0)
             print(
-                "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+                f"""
+                ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                Batch Duration: {start_time_learning - start_time_batch}
+                Learn Duration: {end_time_learning - start_time_learning}
+                Elapsed Time:   {end_time_learning - start_time}
+                Current Time:   {end_time_learning}
+                --------------------------------------------------------------------------------------------
+                """
             )
-            print(f"Time: {train_end_time}")
-            print(f"Batch Duration: {train_start_time - batch_start_time}")
-            print(f"Train Duration: {train_end_time - train_start_time}")
-            print(f"Elapsed Time: {train_end_time - start_time}")
-            print(
-                "--------------------------------------------------------------------------------------------"
-            )
-            batch_start_time = datetime.now().replace(microsecond=0)
-
     env.close()
-
-    # print total training time
-    print(
-        "============================================================================================"
-    )
     end_time = datetime.now().replace(microsecond=0)
-    print("Started training at: ", start_time)
-    print("Finished training at: ", end_time)
-    print("Total training time: ", end_time - start_time)
     print(
-        "============================================================================================"
+        f"""
+        ============================================================================================
+        Start Time: {start_time}
+        End Time:   {end_time}
+        Duration:   {end_time - start_time}
+        ============================================================================================
+        """
     )
 
 
@@ -68,13 +78,11 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    dict_config.agent.name = dict_config.tag
-
     config = OmegaConf.to_container(
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )
 
-    train_agent(config)
+    train_agent(config, checkpoint_path)
 
 
 if __name__ == "__main__":
