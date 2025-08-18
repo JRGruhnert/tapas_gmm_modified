@@ -48,13 +48,17 @@ class MasterEnv:
         self.states = states
         self.tasks = tasks
         self.env = Calvin(config=config.calvin_config)
-        self.spawn_surfaces: dict[str, np.ndarray] = self.env.surfaces
-        self.eval_surfaces: dict[str, np.ndarray] = {}
+        self.spawn_surfaces: dict[str, torch.Tensor] = {
+            k: torch.from_numpy(np.array(v)) for k, v in self.env.surfaces.items()
+        }
+        self.eval_surfaces: dict[str, torch.Tensor] = {}
         self.eval_surfaces["table"] = self.spawn_surfaces["table"]
-        self.eval_surfaces["drawer"] = [
-            self.spawn_surfaces["drawer_open"][0],
-            self.spawn_surfaces["drawer_closed"][1],
-        ]
+        self.eval_surfaces["drawer"] = torch.stack(
+            [
+                self.spawn_surfaces["drawer_open"][0],
+                self.spawn_surfaces["drawer_closed"][1],
+            ]
+        )
         self.eval_surfaces["drawer"] = self.add_surface_padding(
             self.eval_surfaces["drawer"], padding_percent=0.1
         )
@@ -85,7 +89,7 @@ class MasterEnv:
             [x_max + x_padding, y_max + y_padding, z_max],
         ]
 
-        return padded_surface
+        return torch.tensor(padded_surface, dtype=torch.float32)
 
     @cached_property
     def max_steps(self) -> int:
@@ -104,7 +108,7 @@ class MasterEnv:
 
         self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
         self.current = MasterObservation(self.current_calvin)
-        while self.check_completion():  # Ensure that they are not the same
+        while self.completion_check():  # Ensure that they are not the same
             self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
             self.current = MasterObservation(self.current_calvin)
 
@@ -177,39 +181,31 @@ class MasterEnv:
                 "Episode already ended. Please reset the evaluator with the new goal and state."
             )
         if self.config.reward_mode is RewardMode.SPARSE:
-            completion = self.check_completion()
-            if completion:  # Success
-                self.terminal = completion
-                # print(f"success {self.steps_left}")
+            if self.completion_check():
+                self.terminal = True
                 return self.config.max_reward, self.terminal
             else:
-                if self.steps_left == 0:  # Failure
-                    self.terminal = True
-                    # print(f"failure {self.steps_left}")
-                    return self.config.min_reward, self.terminal
-                else:  # Normal Step
-                    self.terminal = False
-                    # print(f"normal {self.steps_left}")
-                    return self.config.min_reward, self.terminal
+                self.terminal = False if self.steps_left > 0 else True
+                return self.config.min_reward, self.terminal
         if self.config.reward_mode is RewardMode.ONOFF:
             raise NotImplementedError("Reward Mode not implemented.")
         if self.config.reward_mode is RewardMode.RANGE:
             raise NotImplementedError("Reward Mode not implemented.")
 
-    def check_completion(
+    def completion_check(
         self,
     ) -> bool:
         ##### Checking if goal is reached
-        goal_reached = True
         for state in self.states:
             goal_reached = state.evaluate_success_condition(
                 self.current.states[state.name],
                 self.goal.states[state.name],
                 self.eval_surfaces,
             )
+            # print(f"State {state.name} is {goal_reached}")
             if not goal_reached:
-                break  # Early exit if goal is already not reached
-        return goal_reached
+                return False  # Early exit if goal is already not reached
+        return True
 
     def make_tapas_format(self, obs: CalvinObservation, task: Task = None, goal: MasterObservation = None) -> SceneObservation:  # type: ignore
         """
@@ -283,12 +279,12 @@ class MasterEnv:
                 # TODO: Evaluate if goal state is correct here
                 elif match_position:
                     temp_pos = self.states[0].area_tapas_override(
-                        goal.states[f"{match_position.group(1)}_position"].numpy(),
+                        goal.states[f"{match_position.group(1)}_position"],
                         self.spawn_surfaces,
                     )
                     object_poses_dict[match_position.group(1)] = np.concatenate(
                         [
-                            temp_pos,
+                            temp_pos.numpy(),
                             object_poses_dict[match_position.group(1)][3:],
                         ]
                     )

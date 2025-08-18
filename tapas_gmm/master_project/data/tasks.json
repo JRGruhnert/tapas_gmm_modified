@@ -96,7 +96,7 @@
     "overrides": []
   },
   "PlaceRedTable": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -109,7 +109,7 @@
     ]
   },
   "PlacePinkTable": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -122,7 +122,7 @@
     ]
   },
   "PlaceBlueTable": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": false,
     "overrides": [
@@ -135,7 +135,7 @@
     ]
   },
   "PlaceRedDrawer": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [
@@ -148,7 +148,7 @@
     ]
   },
   "PlacePinkDrawer": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [
@@ -161,7 +161,7 @@
     ]
   },
   "PlaceBlueDrawer": {
-    "space": ["Debug", "Normal"],
+    "space": ["Normal"],
     "reversed": true,
     "conditional": true,
     "overrides": [

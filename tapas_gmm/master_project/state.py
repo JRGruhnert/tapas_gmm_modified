@@ -218,7 +218,7 @@ class State(ABC):
         if self.success_mode == StateSuccess.Area:
             return self.check_area_states(obs, goal, surfaces)
         elif self.success_mode == StateSuccess.Precise:
-            return self.distance_to_goal(obs, goal).item() > self.threshold
+            return self.distance_to_goal(obs, goal).item() <= self.threshold
         elif self.success_mode == StateSuccess.Ignore:
             return True
         else:
@@ -227,8 +227,8 @@ class State(ABC):
             )
 
     def area_tapas_override(
-        self, x: np.ndarray, surfaces: dict[str, np.ndarray]
-    ) -> np.ndarray:
+        self, x: torch.Tensor, surfaces: dict[str, torch.Tensor]
+    ) -> torch.Tensor:
         """
         Override the area check for TAPAS.
         """
@@ -237,20 +237,22 @@ class State(ABC):
             x[1] -= 0.17  # Drawer Offset
         return x  # Return original point if no area match
 
-    def check_area(self, x: np.ndarray, surfaces: dict[str, np.ndarray]) -> str | None:
+    def check_area(
+        self, x: torch.Tensor, surfaces: dict[str, torch.Tensor]
+    ) -> str | None:
         """
         Check if the point x is in any of the defined areas.
         Returns the name of the area or None if not found.
         """
         for name, (min_corner, max_corner) in surfaces.items():
-            box_min = np.array(min_corner)
-            box_max = np.array(max_corner)
-            if np.all(x >= box_min) and np.all(x <= box_max):
+            box_min = torch.tensor(min_corner)
+            box_max = torch.tensor(max_corner)
+            if torch.all(x >= box_min) and torch.all(x <= box_max):
                 return name
         return None
 
     def check_area_states(
-        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
+        self, x: torch.Tensor, y: torch.Tensor, surfaces: dict[str, torch.Tensor]
     ) -> bool:
         area_x = self.check_area(x, surfaces)
         area_y = self.check_area(y, surfaces)
@@ -284,7 +286,7 @@ class EulerState(LinearState):
     ) -> torch.Tensor:
         nx = self.normalize(current)
         ny = self.normalize(tp)
-        return torch.linalg.vector_norm(nx - ny)
+        return torch.linalg.norm(nx - ny)
 
     def distance_to_goal(
         self,
@@ -311,7 +313,7 @@ class EulerState(LinearState):
 @State.register_type(StateType.Quaternion)
 class QuaternionState(State):
     def normalize_quat(self, x: torch.Tensor) -> torch.Tensor:
-        x = x / torch.norm(x)
+        x = x / torch.linalg.norm(x)
         if x[3] < 0:
             return -x
         return x
