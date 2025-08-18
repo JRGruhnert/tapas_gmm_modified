@@ -1,23 +1,19 @@
-import argparse
+import os
+import glob
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
-import glob
-import os
-from pathlib import Path
-from omegaconf import OmegaConf, SCMode
-import pandas as pd
-from typing import Dict
-
-from tapas_gmm.utils.argparse import parse_and_build_config
+from typing import Dict, List, Tuple
+import argparse
 
 
 class RolloutAnalyzer:
     def __init__(self, path: str):
         """
-        Initialize analyzer with path to directory containing .npy files
+        Initialize analyzer with path to directory containing .pt files
 
         Args:
-            data_path: Path to directory containing rollout_buffer_*.npy files
+            data_path: Path to directory containing stats_epoch_*.pt files
         """
         self.data_path = path + "logs/"
         self.save_path = path
@@ -26,117 +22,181 @@ class RolloutAnalyzer:
 
     def load_all_batches(self) -> Dict[int, Dict]:
         """Load all rollout buffer files and return combined data"""
-        # Find all rollout buffer files
-        pattern = os.path.join(self.data_path, "stats_epoch_*.npy")
+        # Updated pattern for new file format
+        pattern = os.path.join(self.data_path, "stats_epoch_*.pt")
         files = glob.glob(pattern)
 
         if not files:
             print(f"No rollout buffer files found in {self.data_path}")
+            print(f"Looking for pattern: stats_epoch_*.pt")
+            # List all files in directory for debugging
+            if os.path.exists(self.data_path):
+                all_files = os.listdir(self.data_path)
+                print(f"Available files: {all_files}")
             return {}
 
-        print(f"Found {len(files)} rollout buffer files")
+        print(f"Found {len(files)} rollout files")
 
-        # Sort files by batch number
-        files.sort(key=lambda x: int(x.split("_")[-1].split(".")[0]))
+        for file_path in sorted(files):
+            try:
+                # Extract epoch number from filename
+                filename = os.path.basename(file_path)
+                epoch = int(filename.split("_")[-1].split(".")[0])
 
-        for file_path in files:
-            # Extract batch number from filename
-            batch_num = int(Path(file_path).stem.split("_")[-1])
+                # Load the .pt file
+                data = torch.load(file_path, map_location="cpu")
 
-            # Load data
-            data = np.load(file_path, allow_pickle=True).item()
-            self.batch_data[batch_num] = data
+                # Convert tensors to numpy for easier processing
+                batch_data = {
+                    "actions": data["actions"].numpy(),
+                    "logprobs": data["logprobs"].numpy(),
+                    "values": data["values"].numpy(),
+                    "rewards": data["rewards"].numpy(),
+                    "terminals": data["terminals"].numpy(),
+                }
 
-            print(f"Loaded batch {batch_num}: {len(data['rewards'])} timesteps")
+                self.batch_data[epoch] = batch_data
+                print(f"Loaded epoch {epoch}: {len(batch_data['rewards'])} timesteps")
+
+            except Exception as e:
+                print(f"Error loading {file_path}: {e}")
+                continue
 
         return self.batch_data
+
+    def compute_batch_stats(self, batch_data: Dict) -> Dict:
+        """Compute statistics for a single batch"""
+        rewards = batch_data["rewards"]
+        terminals = batch_data["terminals"]
+        values = batch_data["values"]
+        actions = batch_data["actions"]
+
+        # Calculate episode statistics
+        episode_rewards = []
+        episode_lengths = []
+        episode_successes = []
+
+        current_episode_reward = 0
+        current_episode_length = 0
+
+        for i, (reward, terminal) in enumerate(zip(rewards, terminals)):
+            current_episode_reward += reward
+            current_episode_length += 1
+
+            if terminal:
+                episode_rewards.append(current_episode_reward)
+                episode_lengths.append(current_episode_length)
+                # TODO: Remove hardcoded 50 as success threshold
+                episode_successes.append(1 if reward >= 50.0 else 0)
+                current_episode_reward = 0
+                current_episode_length = 0
+
+        return {
+            "total_timesteps": len(rewards),
+            "total_episodes": len(episode_rewards),
+            "mean_episode_reward": np.mean(episode_rewards) if episode_rewards else 0.0,
+            "std_episode_reward": np.std(episode_rewards) if episode_rewards else 0.0,
+            "min_episode_reward": np.min(episode_rewards) if episode_rewards else 0.0,
+            "max_episode_reward": np.max(episode_rewards) if episode_rewards else 0.0,
+            "mean_episode_length": np.mean(episode_lengths) if episode_lengths else 0.0,
+            "success_rate": np.mean(episode_successes) if episode_successes else 0.0,
+            "mean_value": np.mean(values) if len(values) > 0 else 0.0,
+            "mean_reward_per_step": np.mean(rewards) if len(rewards) > 0 else 0.0,
+            "action_distribution": (
+                np.bincount(actions.argmax(axis=1))
+                if len(actions.shape) > 1
+                else np.bincount(actions.astype(int))
+            ),
+        }
 
     def compute_summary_stats(self) -> Dict:
         """Compute summary statistics across all batches"""
         if not self.batch_data:
             self.load_all_batches()
 
-        all_rewards = []
-        all_values = []
-        all_actions = []
-        all_logprobs = []
-        success_rates = []
-        episode_lengths = []
-
-        batch_summaries = {}
-
-        for batch_num, data in self.batch_data.items():
-            rewards = data["rewards"]
-            values = data["values"]
-            actions = data["actions"]
-            logprobs = data["logprobs"]
-            terminals = data["terminals"]
-
-            # Collect all data
-            all_rewards.extend(rewards)
-            all_values.extend(values)
-            all_actions.extend(actions.flatten() if actions.ndim > 1 else actions)
-            all_logprobs.extend(logprobs)
-
-            # Calculate episode statistics
-            episode_rewards = []
-            episode_lengths_batch = []
-            current_episode_reward = 0
-            current_episode_length = 0
-
-            for i, (reward, terminal) in enumerate(zip(rewards, terminals)):
-                current_episode_reward += reward
-                current_episode_length += 1
-
-                if terminal:
-                    episode_rewards.append(current_episode_reward)
-                    episode_lengths_batch.append(current_episode_length)
-                    current_episode_reward = 0
-                    current_episode_length = 0
-
-            # Success rate (assuming reward > 0 means success)
-            success_rate = (
-                sum(1 for r in episode_rewards if r > 0) / len(episode_rewards)
-                if episode_rewards
-                else 0
-            )
-            success_rates.append(success_rate)
-            episode_lengths.extend(episode_lengths_batch)
-
-            # Batch summary
-            batch_summaries[batch_num] = {
-                "mean_reward": np.mean(rewards),
-                "std_reward": np.std(rewards),
-                "mean_value": np.mean(values),
-                "std_value": np.std(values),
-                "mean_episode_reward": (
-                    np.mean(episode_rewards) if episode_rewards else 0
-                ),
-                "success_rate": success_rate,
-                "num_episodes": len(episode_rewards),
-                "mean_episode_length": (
-                    np.mean(episode_lengths_batch) if episode_lengths_batch else 0
-                ),
+        # Check if we have any data
+        if not self.batch_data:
+            print("No batch data found. Cannot compute statistics.")
+            self.summary_stats = {
+                "batch_summaries": {},
+                "overall": {
+                    "total_timesteps": 0,
+                    "total_batches": 0,
+                    "total_episodes": 0,
+                    "mean_episode_reward": 0.0,
+                    "std_episode_reward": 0.0,
+                    "min_episode_reward": 0.0,
+                    "max_episode_reward": 0.0,
+                    "mean_value": 0.0,
+                    "std_value": 0.0,
+                    "mean_success_rate": 0.0,
+                    "mean_episode_length": 0.0,
+                },
             }
+            return self.summary_stats
+
+        # Compute stats for each batch
+        batch_summaries = {}
+        all_episode_rewards = []
+        all_values = []
+        all_success_rates = []
+        all_episode_lengths = []
+        total_timesteps = 0
+        total_episodes = 0
+
+        for epoch, batch_data in self.batch_data.items():
+            batch_stats = self.compute_batch_stats(batch_data)
+            batch_summaries[epoch] = batch_stats
+
+            # Collect data for overall stats
+            rewards = batch_data["rewards"]
+            terminals = batch_data["terminals"]
+            values = batch_data["values"]
+
+            # Extract episode rewards for this batch
+            current_episode_reward = 0
+            for reward, terminal in zip(rewards, terminals):
+                current_episode_reward += reward
+                if terminal:
+                    all_episode_rewards.append(current_episode_reward)
+                    current_episode_reward = 0
+
+            all_values.extend(values)
+            all_success_rates.append(batch_stats["success_rate"])
+            all_episode_lengths.append(batch_stats["mean_episode_length"])
+            total_timesteps += batch_stats["total_timesteps"]
+            total_episodes += batch_stats["total_episodes"]
 
         # Overall statistics
+        overall_stats = {
+            "total_timesteps": total_timesteps,
+            "total_batches": len(self.batch_data),
+            "total_episodes": total_episodes,
+            "mean_episode_reward": (
+                np.mean(all_episode_rewards) if all_episode_rewards else 0.0
+            ),
+            "std_episode_reward": (
+                np.std(all_episode_rewards) if all_episode_rewards else 0.0
+            ),
+            "min_episode_reward": (
+                np.min(all_episode_rewards) if all_episode_rewards else 0.0
+            ),
+            "max_episode_reward": (
+                np.max(all_episode_rewards) if all_episode_rewards else 0.0
+            ),
+            "mean_value": np.mean(all_values) if all_values else 0.0,
+            "std_value": np.std(all_values) if all_values else 0.0,
+            "mean_success_rate": (
+                np.mean(all_success_rates) if all_success_rates else 0.0
+            ),
+            "mean_episode_length": (
+                np.mean(all_episode_lengths) if all_episode_lengths else 0.0
+            ),
+        }
+
         self.summary_stats = {
             "batch_summaries": batch_summaries,
-            "overall": {
-                "total_timesteps": len(all_rewards),
-                "total_batches": len(self.batch_data),
-                "mean_reward": np.mean(all_rewards),
-                "std_reward": np.std(all_rewards),
-                "min_reward": np.min(all_rewards),
-                "max_reward": np.max(all_rewards),
-                "mean_value": np.mean(all_values),
-                "std_value": np.std(all_values),
-                "mean_success_rate": np.mean(success_rates),
-                "action_distribution": np.bincount(all_actions),
-                "mean_episode_length": (
-                    np.mean(episode_lengths) if episode_lengths else 0
-                ),
-            },
+            "overall": overall_stats,
         }
 
         return self.summary_stats
@@ -146,215 +206,118 @@ class RolloutAnalyzer:
         if not self.summary_stats:
             self.compute_summary_stats()
 
-        print("=" * 80)
-        print("ROLLOUT BUFFER ANALYSIS")
-        print("=" * 80)
+        print("\n" + "=" * 50)
+        print("ROLLOUT ANALYSIS SUMMARY")
+        print("=" * 50)
 
         overall = self.summary_stats["overall"]
-        print(f"📊 OVERALL STATISTICS:")
-        print(f"   Total timesteps: {overall['total_timesteps']:,}")
-        print(f"   Total batches: {overall['total_batches']}")
-        print(f"   Mean episode length: {overall['mean_episode_length']:.1f}")
-        print()
+        print(f"Total Timesteps: {overall['total_timesteps']:,}")
+        print(f"Total Batches: {overall['total_batches']}")
+        print(f"Total Episodes: {overall['total_episodes']}")
+        print(
+            f"Mean Episode Reward: {overall['mean_episode_reward']:.2f} ± {overall['std_episode_reward']:.2f}"
+        )
+        print(
+            f"Episode Reward Range: [{overall['min_episode_reward']:.2f}, {overall['max_episode_reward']:.2f}]"
+        )
+        print(f"Mean Episode Length: {overall['mean_episode_length']:.1f} steps")
+        print(f"Success Rate: {overall['mean_success_rate']:.1%}")
+        print(
+            f"Mean Value Estimate: {overall['mean_value']:.3f} ± {overall['std_value']:.3f}"
+        )
 
-        print(f"💰 REWARD STATISTICS:")
-        print(f"   Mean reward: {overall['mean_reward']:.3f}")
-        print(f"   Std reward: {overall['std_reward']:.3f}")
-        print(f"   Min reward: {overall['min_reward']:.3f}")
-        print(f"   Max reward: {overall['max_reward']:.3f}")
-        print()
+        print("\n" + "-" * 30)
+        print("PER-BATCH BREAKDOWN")
+        print("-" * 30)
 
-        print(f"🎯 VALUE FUNCTION:")
-        print(f"   Mean value: {overall['mean_value']:.3f}")
-        print(f"   Std value: {overall['std_value']:.3f}")
-        print()
-
-        print(f"🎮 ACTION DISTRIBUTION:")
-        action_dist = overall["action_distribution"]
-        for i, count in enumerate(action_dist):
-            percentage = (count / overall["total_timesteps"]) * 100
-            print(f"   Action {i}: {count:,} times ({percentage:.1f}%)")
-        print()
-
-        print(f"🏆 SUCCESS RATE:")
-        print(f"   Mean success rate: {overall['mean_success_rate']:.1%}")
-        print()
-
-        print("📈 BATCH-BY-BATCH PROGRESS:")
-        print("Batch | Mean Reward | Mean Value | Success Rate | Episodes | Avg Length")
-        print("-" * 70)
-
-        for batch_num in sorted(self.summary_stats["batch_summaries"].keys()):
-            stats = self.summary_stats["batch_summaries"][batch_num]
+        batch_summaries = self.summary_stats["batch_summaries"]
+        for epoch in sorted(batch_summaries.keys()):
+            stats = batch_summaries[epoch]
             print(
-                f"{batch_num:5d} | {stats['mean_reward']:11.3f} | {stats['mean_value']:10.3f} | "
-                f"{stats['success_rate']:11.1%} | {stats['num_episodes']:8d} | {stats['mean_episode_length']:10.1f}"
+                f"Epoch {epoch:3d}: "
+                f"Episodes={stats['total_episodes']:2d}, "
+                f"Reward={stats['mean_episode_reward']:6.1f}, "
+                f"Success={stats['success_rate']:4.1%}, "
+                f"Length={stats['mean_episode_length']:4.1f}"
             )
 
-        print("\n" + "=" * 80)
-
-        # Learning indicators
-        print("🔍 LEARNING INDICATORS:")
-        batches = sorted(self.summary_stats["batch_summaries"].keys())
-        if len(batches) >= 2:
-            first_batch = self.summary_stats["batch_summaries"][batches[0]]
-            last_batch = self.summary_stats["batch_summaries"][batches[-1]]
-
-            reward_change = last_batch["mean_reward"] - first_batch["mean_reward"]
-            value_change = last_batch["mean_value"] - first_batch["mean_value"]
-            success_change = last_batch["success_rate"] - first_batch["success_rate"]
-
-            print(f"   Reward change: {reward_change:+.3f} (first to last batch)")
-            print(f"   Value change: {value_change:+.3f} (first to last batch)")
-            print(
-                f"   Success rate change: {success_change:+.1%} (first to last batch)"
-            )
-
-            if reward_change > 0.01:
-                print("   ✅ Rewards are improving!")
-            elif abs(reward_change) < 0.01:
-                print("   ⚠️  Rewards are stagnant")
-            else:
-                print("   ❌ Rewards are decreasing")
-
-        # Check for common issues
-        print("\n🚨 POTENTIAL ISSUES:")
-
-        # Check if all rewards are the same
-        if overall["std_reward"] < 1e-6:
-            print("   ❌ All rewards are identical - sparse reward problem?")
-
-        # Check if values are learning
-        if overall["std_value"] < 1e-6:
-            print("   ❌ Value function is not learning (all values identical)")
-
-        # Check action distribution
-        max_action_pct = np.max(action_dist) / overall["total_timesteps"]
-        if max_action_pct > 0.8:
-            print(
-                f"   ⚠️  Policy is very deterministic ({max_action_pct:.1%} on one action)"
-            )
-        elif max_action_pct < 0.3:
-            print(f"   ⚠️  Policy is very random (max action only {max_action_pct:.1%})")
-
-        # Check success rate
-        if overall["mean_success_rate"] < 0.01:
-            print("   ⚠️  Very low success rate - environment might be too hard")
-
-        print("=" * 80)
-
-    def plot_training_progress(self, name: str):
-        """Create comprehensive plots of training progress"""
-        file_path = self.save_path + name
+    def plot_training_curves(self):
+        """Plot training progress over time"""
         if not self.summary_stats:
             self.compute_summary_stats()
 
-        # Create figure with subplots
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle("Rollout Buffer Analysis", fontsize=16)
+        batch_summaries = self.summary_stats["batch_summaries"]
+        if not batch_summaries:
+            print("No data to plot")
+            return
 
-        # Extract data for plotting
-        batches = sorted(self.summary_stats["batch_summaries"].keys())
-        batch_rewards = [
-            self.summary_stats["batch_summaries"][b]["mean_reward"] for b in batches
-        ]
-        batch_values = [
-            self.summary_stats["batch_summaries"][b]["mean_value"] for b in batches
-        ]
-        batch_success = [
-            self.summary_stats["batch_summaries"][b]["success_rate"] for b in batches
-        ]
-        episode_rewards = [
-            self.summary_stats["batch_summaries"][b]["mean_episode_reward"]
-            for b in batches
-        ]
-        episode_lengths = [
-            self.summary_stats["batch_summaries"][b]["mean_episode_length"]
-            for b in batches
-        ]
+        epochs = sorted(batch_summaries.keys())
+        episode_rewards = [batch_summaries[e]["mean_episode_reward"] for e in epochs]
+        success_rates = [batch_summaries[e]["success_rate"] for e in epochs]
+        episode_lengths = [batch_summaries[e]["mean_episode_length"] for e in epochs]
 
-        # Plot 1: Mean reward per batch
-        axes[0, 0].plot(batches, batch_rewards, "b-o", markersize=4)
-        axes[0, 0].set_title("Mean Reward per Batch")
-        axes[0, 0].set_xlabel("Batch")
-        axes[0, 0].set_ylabel("Mean Reward")
-        axes[0, 0].grid(True, alpha=0.3)
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 8))
 
-        # Plot 2: Mean value per batch
-        axes[0, 1].plot(batches, batch_values, "g-o", markersize=4)
-        axes[0, 1].set_title("Mean Value Function per Batch")
-        axes[0, 1].set_xlabel("Batch")
-        axes[0, 1].set_ylabel("Mean Value")
-        axes[0, 1].grid(True, alpha=0.3)
+        # Episode rewards
+        ax1.plot(epochs, episode_rewards, "b-", alpha=0.7)
+        ax1.set_xlabel("Epoch")
+        ax1.set_ylabel("Mean Episode Reward")
+        ax1.set_title("Training Progress: Episode Rewards")
+        ax1.grid(True, alpha=0.3)
 
-        # Plot 3: Success rate per batch
-        axes[0, 2].plot(batches, batch_success, "r-o", markersize=4)
-        axes[0, 2].set_title("Success Rate per Batch")
-        axes[0, 2].set_xlabel("Batch")
-        axes[0, 2].set_ylabel("Success Rate")
-        axes[0, 2].grid(True, alpha=0.3)
-        axes[0, 2].set_ylim(0, 1)
+        # Success rate
+        ax2.plot(epochs, success_rates, "g-", alpha=0.7)
+        ax2.set_xlabel("Epoch")
+        ax2.set_ylabel("Success Rate")
+        ax2.set_title("Training Progress: Success Rate")
+        ax2.set_ylim(0, 1)
+        ax2.grid(True, alpha=0.3)
 
-        # Plot 4: Episode rewards
-        axes[1, 0].plot(batches, episode_rewards, "m-o", markersize=4)
-        axes[1, 0].set_title("Mean Episode Reward per Batch")
-        axes[1, 0].set_xlabel("Batch")
-        axes[1, 0].set_ylabel("Mean Episode Reward")
-        axes[1, 0].grid(True, alpha=0.3)
+        # Episode lengths
+        ax3.plot(epochs, episode_lengths, "r-", alpha=0.7)
+        ax3.set_xlabel("Epoch")
+        ax3.set_ylabel("Mean Episode Length")
+        ax3.set_title("Training Progress: Episode Length")
+        ax3.grid(True, alpha=0.3)
 
-        # Plot 5: Episode lengths
-        axes[1, 1].plot(batches, episode_lengths, "c-o", markersize=4)
-        axes[1, 1].set_title("Mean Episode Length per Batch")
-        axes[1, 1].set_xlabel("Batch")
-        axes[1, 1].set_ylabel("Mean Episode Length")
-        axes[1, 1].grid(True, alpha=0.3)
+        # Combined plot
+        ax4_twin = ax4.twinx()
+        line1 = ax4.plot(epochs, episode_rewards, "b-", label="Episode Reward")
+        line2 = ax4_twin.plot(epochs, success_rates, "g-", label="Success Rate")
 
-        # Plot 6: Action distribution (last batch)
-        if batches:
-            last_batch_data = self.batch_data[batches[-1]]
-            actions = (
-                last_batch_data["actions"].flatten()
-                if last_batch_data["actions"].ndim > 1
-                else last_batch_data["actions"]
-            )
-            action_counts = np.bincount(actions)
-            axes[1, 2].bar(range(len(action_counts)), action_counts)
-            axes[1, 2].set_title(f"Action Distribution (Batch {batches[-1]})")
-            axes[1, 2].set_xlabel("Action")
-            axes[1, 2].set_ylabel("Count")
-            axes[1, 2].grid(True, alpha=0.3)
+        ax4.set_xlabel("Epoch")
+        ax4.set_ylabel("Episode Reward", color="b")
+        ax4_twin.set_ylabel("Success Rate", color="g")
+        ax4.set_title("Combined Training Progress")
+
+        # Combine legends
+        lines = line1 + line2
+        labels = [l.get_label() for l in lines]
+        ax4.legend(lines, labels, loc="center right")
+        ax4.grid(True, alpha=0.3)
 
         plt.tight_layout()
 
-        plt.savefig(file_path, dpi=300, bbox_inches="tight")
-        print(f"Plot saved to {file_path}")
-
-    def export_summary_csv(self, name: str):
-        """Export summary statistics to CSV for further analysis"""
-        file_path = self.save_path + name
-        if not self.summary_stats:
-            self.compute_summary_stats()
-
-        # Create DataFrame from batch summaries
-        df = pd.DataFrame.from_dict(
-            self.summary_stats["batch_summaries"], orient="index"
-        )
-        df.index.name = "batch"
-        df.to_csv(file_path)
-        print(f"Summary exported to {file_path}")
+        # Save plot
+        plot_path = os.path.join(self.save_path, "training_curves.png")
+        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
+        print(f"Training curves saved to: {plot_path}")
+        plt.show()
 
 
 def entry_point():
+    from tapas_gmm.utils.argparse import parse_and_build_config
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    # default = f"results/{dict_config.nt.value}/{dict_config.tag}/"
-    default = "results/gnn4/experiment_1_1/"
-    analyzer = RolloutAnalyzer(default)
-    analyzer.load_all_batches()
+    # Build results path from config
+    # results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
+    results_path = "results/gnn4/new_min_min/"
+    print(f"Analyzing results from: {results_path}")
+
+    analyzer = RolloutAnalyzer(results_path)
     analyzer.print_analysis()
-    analyzer.plot_training_progress(name="plots.png")
-    analyzer.export_summary_csv(name="summary.csv")
+    analyzer.plot_training_curves()
 
 
 if __name__ == "__main__":

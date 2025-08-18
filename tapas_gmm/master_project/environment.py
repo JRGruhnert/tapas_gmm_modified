@@ -7,7 +7,6 @@ import re
 import torch
 
 from calvin_env.envs.observation import CalvinObservation
-from build.lib.tapas_gmm.master_project import task
 from tapas_gmm.env.calvin import Calvin, CalvinConfig
 from tapas_gmm.master_project.state import State
 from tapas_gmm.master_project.task import Task
@@ -49,10 +48,44 @@ class MasterEnv:
         self.states = states
         self.tasks = tasks
         self.env = Calvin(config=config.calvin_config)
+        self.spawn_surfaces: dict[str, np.ndarray] = self.env.surfaces
+        self.eval_surfaces: dict[str, np.ndarray] = {}
+        self.eval_surfaces["table"] = self.spawn_surfaces["table"]
+        self.eval_surfaces["drawer"] = [
+            self.spawn_surfaces["drawer_open"][0],
+            self.spawn_surfaces["drawer_closed"][1],
+        ]
+        self.eval_surfaces["drawer"] = self.add_surface_padding(
+            self.eval_surfaces["drawer"], padding_percent=0.1
+        )
+        print(f"Spawn Surfaces: {self.spawn_surfaces}")
+        print(f"Eval Surfaces: {self.eval_surfaces}")
 
         self.last_gripper_action = [1.0]  # open
         self.steps_left = self.max_steps
         self.terminal = False
+
+    def add_surface_padding(self, surface, padding_percent: float):
+        """Add padding to surface bounds in x and y directions"""
+        # surface = np.array(surface)
+
+        # Get bounds
+        x_min, y_min, z_min = surface[0]
+        x_max, y_max, z_max = surface[1]
+
+        # Calculate padding amounts
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        x_padding = x_range * padding_percent / 2  # Divide by 2 for each side
+        y_padding = y_range * padding_percent / 2
+
+        # Apply padding (keep z unchanged)
+        padded_surface = [
+            [x_min - x_padding, y_min - y_padding, z_min],
+            [x_max + x_padding, y_max + y_padding, z_max],
+        ]
+
+        return padded_surface
 
     @cached_property
     def max_steps(self) -> int:
@@ -172,7 +205,7 @@ class MasterEnv:
             goal_reached = state.evaluate_success_condition(
                 self.current.states[state.name],
                 self.goal.states[state.name],
-                self.env.surfaces,
+                self.eval_surfaces,
             )
             if not goal_reached:
                 break  # Early exit if goal is already not reached
@@ -225,7 +258,7 @@ class MasterEnv:
             assert goal is not None, "Goal must be provided for reversed tasks."
             # NOTE: This is only a hack to make reversed tapas models work
             # TODO: Update this when possible
-            logger.debug(f"Overriding Tapas Task {task.name}")
+            # logger.debug(f"Overriding Tapas Task {task.name}")
             for state_name, state_value in task.overrides.items():
                 match_position = re.search(r"(.+?)_(?:position)", state_name)
                 match_rotation = re.search(r"(.+?)_(?:rotation)", state_name)
@@ -249,9 +282,13 @@ class MasterEnv:
 
                 # TODO: Evaluate if goal state is correct here
                 elif match_position:
+                    temp_pos = self.states[0].area_tapas_override(
+                        goal.states[f"{match_position.group(1)}_position"].numpy(),
+                        self.spawn_surfaces,
+                    )
                     object_poses_dict[match_position.group(1)] = np.concatenate(
                         [
-                            goal.states[f"{match_position.group(1)}_position"].numpy(),
+                            temp_pos,
                             object_poses_dict[match_position.group(1)][3:],
                         ]
                     )

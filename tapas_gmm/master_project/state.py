@@ -226,22 +226,34 @@ class State(ABC):
                 f"State Success: {self.success_mode} is not implemented."
             )
 
-    def check_area_states(
-        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
-    ) -> bool:
-        area_x = None
-        area_y = None
+    def area_tapas_override(
+        self, x: np.ndarray, surfaces: dict[str, np.ndarray]
+    ) -> np.ndarray:
+        """
+        Override the area check for TAPAS.
+        """
+        area = self.check_area(x, surfaces)
+        if area == "closed_drawer":
+            x[1] -= 0.17  # Drawer Offset
+        return x  # Return original point if no area match
+
+    def check_area(self, x: np.ndarray, surfaces: dict[str, np.ndarray]) -> str | None:
+        """
+        Check if the point x is in any of the defined areas.
+        Returns the name of the area or None if not found.
+        """
         for name, (min_corner, max_corner) in surfaces.items():
             box_min = np.array(min_corner)
             box_max = np.array(max_corner)
             if np.all(x >= box_min) and np.all(x <= box_max):
-                area_x = name
-            if np.all(y >= box_min) and np.all(y <= box_max):
-                area_y = name
-        if area_x is None or area_y is None:
-            logger.warning(
-                f"Point {x} or {y} is not in any defined area. Areas: {surfaces.keys()}"
-            )
+                return name
+        return None
+
+    def check_area_states(
+        self, x: np.ndarray, y: np.ndarray, surfaces: dict[str, np.ndarray]
+    ) -> bool:
+        area_x = self.check_area(x, surfaces)
+        area_y = self.check_area(y, surfaces)
         return area_x == area_y
 
 

@@ -5,7 +5,8 @@ debug = AgentConfig(batch_size=8, mini_batch_size=4)
 experiment1 = AgentConfig()
 
 experiment2 = AgentConfig(
-    lr_actor=0.0005,
+    batch_size=8192,
+    mini_batch_size=256,
 )
 
 experiment3 = AgentConfig()
