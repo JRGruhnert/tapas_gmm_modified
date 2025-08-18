@@ -202,9 +202,7 @@ class MasterEnv:
         if self.config.reward_mode is RewardMode.RANGE:
             raise NotImplementedError("Reward Mode not implemented.")
 
-    def completion_check(
-        self,
-    ) -> bool:
+    def completion_check(self) -> bool:
         ##### Checking if goal is reached
         for state in self.states:
             goal_reached = state.evaluate_success_condition(

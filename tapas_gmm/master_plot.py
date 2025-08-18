@@ -312,7 +312,7 @@ def entry_point():
 
     # Build results path from config
     # results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
-    results_path = "results/gnn4/new_min_min/"
+    results_path = "results/gnn4/new_normal_min/"
     print(f"Analyzing results from: {results_path}")
 
     analyzer = RolloutAnalyzer(results_path)

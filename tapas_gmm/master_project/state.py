@@ -187,7 +187,7 @@ class State(ABC):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         raise NotImplementedError("Must be implemented by subclasses.")
 
@@ -196,7 +196,7 @@ class State(ABC):
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         raise NotImplementedError("Must be implemented by subclasses.")
 
@@ -213,12 +213,16 @@ class State(ABC):
         raise NotImplementedError("Must be implemented by subclasses.")
 
     def evaluate_success_condition(
-        self, obs: torch.Tensor, goal: torch.Tensor, surfaces: dict[str, np.ndarray]
+        self,
+        obs: torch.Tensor,
+        goal: torch.Tensor,
+        surfaces: dict[str, np.ndarray],
+        reset: bool = False,
     ) -> bool:
         if self.success_mode == StateSuccess.Area:
             return self.check_area_states(obs, goal, surfaces)
         elif self.success_mode == StateSuccess.Precise:
-            return self.distance_to_goal(obs, goal).item() <= self.threshold
+            return self.distance_to_goal(obs, goal) <= self.threshold
         elif self.success_mode == StateSuccess.Ignore:
             return True
         else:
@@ -283,7 +287,7 @@ class EulerState(LinearState):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         nx = self.normalize(current)
         ny = self.normalize(tp)
         return torch.linalg.norm(nx - ny)
@@ -292,7 +296,7 @@ class EulerState(LinearState):
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         return self.distance_to_tp(current, goal, goal)
 
@@ -326,7 +330,7 @@ class QuaternionState(State):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         nx = self.normalize_quat(current)
         ny = self.normalize_quat(tp)
         dot = torch.clamp(torch.abs(torch.dot(nx, ny)), -1.0, 1.0)
@@ -336,7 +340,7 @@ class QuaternionState(State):
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         return self.distance_to_tp(current, goal, goal)
 
@@ -381,16 +385,16 @@ class RangeState(LinearState):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         nx = self.normalize(current)
         ny = self.normalize(tp)
-        return torch.abs(nx - ny)
+        return torch.abs(nx - ny).item()
 
     def distance_to_goal(
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         return self.distance_to_tp(current, goal, goal)
 
@@ -420,14 +424,14 @@ class BooleanState(DiscreteState):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
-        return torch.abs(current - tp)
+    ) -> float:
+        return torch.abs(current - tp).item()
 
     def distance_to_goal(
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
         return self.distance_to_tp(current, goal, goal)
 
@@ -448,19 +452,6 @@ class BooleanState(DiscreteState):
                 return start.mean(dim=0)
         return None  # Not constant enough
 
-        return None  # Not constant enough
-        std_end = end.std(dim=0)
-        std_start = start.std(dim=0)
-        mean_start = start.mean(dim=0)
-        mean_end = end.mean(dim=0)
-        # Basically checks if the boolean switches state consistently
-        if not (std_end == std_start).all() and (mean_end == mean_start).all():
-            if reversed:
-                return mean_end
-            else:
-                return mean_start
-        return None  # Boolean state not relevant
-
 
 @State.register_type(StateType.Flip)
 class FlipState(DiscreteState):
@@ -470,17 +461,17 @@ class FlipState(DiscreteState):
         current: torch.Tensor,
         goal: torch.Tensor,
         tp: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
-        return tp - torch.abs(current - goal)  # Flips distance
+        return (tp - torch.abs(current - goal)).item()  # Flips distance
 
     def distance_to_goal(
         self,
         current: torch.Tensor,
         goal: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> float:
         """Returns the distance of the state as a tensor."""
-        return torch.abs(current - goal)
+        return torch.abs(current - goal).item()
 
     def make_tp(
         self,

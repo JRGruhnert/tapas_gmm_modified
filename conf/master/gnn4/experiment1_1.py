@@ -9,8 +9,8 @@ from tapas_gmm.master_train import MasterConfig
 config = MasterConfig(
     state_space=StateSpace.Minimal,
     task_space=TaskSpace.Minimal,
-    verbose=False,
-    tag="new_min_min",
+    verbose=True,
+    tag="min_min",
     nt=NetworkType.GNN_V4,
     env=env,
     agent=experiment1,

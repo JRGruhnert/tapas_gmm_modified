@@ -34,16 +34,7 @@ class GinVirtualReadoutNetwork(nn.Module):
             # edge_dim=1,
         )
 
-        self.state_virtual_gin = GINEConv(
-            nn=GinStandardMLP(
-                in_dim=self.dim_features,
-                out_dim=self.dim_features,
-                hidden_dim=self.dim_features,
-            ),
-            edge_dim=1,
-        )
-
-        self.state_task_gin = GINConv(
+        self.state_virtual_gin = GINConv(
             nn=GinStandardMLP(
                 in_dim=self.dim_features,
                 out_dim=self.dim_features,
@@ -52,6 +43,23 @@ class GinVirtualReadoutNetwork(nn.Module):
             # edge_dim=1,
         )
 
+        self.state_task_gin = GINEConv(
+            nn=GinStandardMLP(
+                in_dim=self.dim_features,
+                out_dim=self.dim_features,
+                hidden_dim=self.dim_features,
+            ),
+            edge_dim=1,
+        )
+
+        self.virtual_task_gin = GINConv(
+            nn=GinStandardMLP(
+                in_dim=self.dim_features,
+                out_dim=self.dim_features,
+                hidden_dim=self.dim_features,
+            ),
+            # edge_dim=1,
+        )
         self.actor_gin = GINConv(
             nn=UnactivatedMLP(self.dim_features, 1),
         )
@@ -78,7 +86,7 @@ class GinVirtualReadoutNetwork(nn.Module):
             edge_index=edge_index_dict[("obs", "obs-task", "task")],
             edge_attr=edge_attr_dict[("obs", "obs-task", "task")],
         )
-        x2_2 = self.state_task_gin(
+        x2_2 = self.virtual_task_gin(
             x=(x1_2, x2_1),
             edge_index=edge_index_dict[("virtual", "virtual-task", "task")],
         )

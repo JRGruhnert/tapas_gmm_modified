@@ -10,6 +10,7 @@ class NetworkType(Enum):
     GNN_V4 = "gnn4"
     GNN_V5 = "gnn5"
     GNN_V6 = "gnn6"
+    GNN_V7 = "gnn7"
     BASELINE_TEST = "test_baseline"
     GNN_TEST = "test_gnn"
 
@@ -33,6 +34,8 @@ def import_network(network_type):
         from tapas_gmm.master_project.networks.gnn.gnn5 import Gnn as Network
     elif network_type is NetworkType.GNN_V6:
         from tapas_gmm.master_project.networks.gnn.gnn6 import Gnn as Network
+    elif network_type is NetworkType.GNN_V7:
+        from tapas_gmm.master_project.networks.gnn.gnn7 import Gnn as Network
     elif network_type is NetworkType.BASELINE_TEST:
         from tapas_gmm.master_project.networks.baseline.baseline1 import (
             Baseline as Network,

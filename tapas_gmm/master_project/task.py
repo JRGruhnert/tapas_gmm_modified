@@ -271,29 +271,11 @@ class Task:
                     goal.states[state.name],
                     self._task_parameters[state.name],
                 )
-                value = torch.tensor([value, 0.0]) if pad else torch.tensor(value)
+                value = torch.tensor([value, 0.0]) if pad else torch.tensor([value])
                 # 0.0 pad for tasks parameters
             else:
                 nv = -1.0 if sparse else 0.0  # For Identification in filtering
-                value = torch.tensor([nv, 1.0]) if pad else torch.tensor(nv)
+                value = torch.tensor([nv, 1.0]) if pad else torch.tensor([nv])
                 # 1.0 pad for non-task parameters
             task_features.append(value)
         return torch.stack(task_features, dim=0)
-
-    def distances_dict(
-        self,
-        obs: MasterObservation,
-        goal: MasterObservation,
-        states: list[State],
-    ) -> torch.Tensor:
-        task_features: dict[str, torch.Tensor] = {}
-        for state in states:
-            if state.name in self.task_parameters_keys:
-                value = state.distance_to_tp(
-                    obs.states[state.name],
-                    goal.states[state.name],
-                    self._task_parameters[state.name],
-                )
-                value = torch.tensor(value)
-                task_features[state.name] = torch.tensor(value)
-        return task_features
