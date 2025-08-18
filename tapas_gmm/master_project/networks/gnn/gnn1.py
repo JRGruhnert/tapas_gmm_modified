@@ -101,6 +101,8 @@ class Gnn(GnnBase):
 
         data[("obs", "obs-task", "task")].edge_index = self.state_task_full.to(device)
 
-        data[("goal", "goal-obs", "obs")].edge_attr = self.state_state_attr.to(device)
-        data[("obs", "obs-task", "task")].edge_attr = self.state_task_attr.to(device)
+        data[("goal", "goal-obs", "obs")].edge_attr = self.state_state_01_attr.to(
+            device
+        )
+        data[("obs", "obs-task", "task")].edge_attr = self.state_task_01_attr.to(device)
         return data

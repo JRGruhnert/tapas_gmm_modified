@@ -191,10 +191,11 @@ class GnnBase(ActorCriticBase, ABC):
         obs: MasterObservation,
         goal: MasterObservation,
         pad: bool = False,
+        sparse: bool = False,
     ) -> torch.Tensor:
         features: list[torch.Tensor] = []
         for task in self.tasks:
-            distances = task.distances(obs, goal, self.states, pad)
+            distances = task.distances(obs, goal, self.states, pad, sparse)
             features.append(distances)
         return torch.stack(features, dim=0).float()
 
@@ -245,7 +246,22 @@ class GnnBase(ActorCriticBase, ABC):
         return torch.stack([indices, torch.zeros_like(indices)], dim=0)
 
     @cached_property
-    def state_state_attr(self) -> torch.Tensor:
+    def single_to_task(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_tasks)
+        return torch.stack([torch.zeros_like(indices), indices], dim=0)
+
+    @cached_property
+    def state_to_single(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_states)
+        return torch.stack([indices, torch.zeros_like(indices)], dim=0)
+
+    @cached_property
+    def single_to_state(self) -> torch.Tensor:
+        indices = torch.arange(self.dim_states)
+        return torch.stack([torch.zeros_like(indices), indices], dim=0)
+
+    @cached_property
+    def state_state_01_attr(self) -> torch.Tensor:
         return (
             (self.state_state_full[0] == self.state_state_full[1])
             .to(torch.float)
@@ -253,15 +269,36 @@ class GnnBase(ActorCriticBase, ABC):
         )
 
     @cached_property
-    def state_task_attr(self) -> torch.Tensor:
+    def state_task_01_attr(self) -> torch.Tensor:
         sparse = self.state_task_sparse[0] * self.dim_tasks + self.state_task_sparse[1]
         full = self.state_task_full[0] * self.dim_tasks + self.state_task_full[1]
         return torch.isin(full, sparse).float().unsqueeze(-1)
 
     def state_task_attr_weighted(
-        self, current: MasterObservation, goal: MasterObservation
+        self,
+        current: MasterObservation,
+        goal: MasterObservation,
+        pad: bool = True,
+        sparse: bool = False,
     ) -> torch.Tensor:
-        dist_matrix = self.task_state_distances(current, goal, pad=True)  # [T, S, 2]
+        dist_matrix = self.task_state_distances(
+            current, goal, pad, sparse
+        )  # [T, S, 1 or 2]
+        # Now safely get edge attributes for (task, state) pairs: [E, 2]
+        edge_attr = dist_matrix[
+            self.state_task_full[1], self.state_task_full[0]
+        ]  # [E, 2]
+        if sparse:
+            # Create mask for valid edges (no -1 in any attribute)
+            valid_mask = ~(edge_attr == -1).any(dim=1)
+            # Filter edges and attributes
+            edge_attr = edge_attr[valid_mask]
+        return edge_attr
+
+    def state_task_attr_weighted_sparse(
+        self, current: MasterObservation, goal: MasterObservation, pad: bool = True
+    ) -> torch.Tensor:
+        dist_matrix = self.task_state_distances(current, goal, pad)  # [T, S, 2]
         # Now safely get edge attributes for (task, state) pairs: [E, 2]
         edge_attr = dist_matrix[
             self.state_task_full[1], self.state_task_full[0]
