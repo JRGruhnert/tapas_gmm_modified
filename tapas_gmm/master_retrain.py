@@ -19,10 +19,12 @@ class MasterConfig:
     nt: NetworkType
     agent: AgentConfig
     env: MasterEnvConfig
+    checkpoint: str
+    keep_epoch: bool
     verbose: bool = True
 
 
-def train_agent(config: MasterConfig, checkpoint_path: str):
+def train_agent(config: MasterConfig):
     # Initialize the environment and agent
     dloader = DataLoader(config.state_space, config.task_space, config.verbose)
     env = MasterEnv(config.env, dloader.states, dloader.tasks)
@@ -33,7 +35,7 @@ def train_agent(config: MasterConfig, checkpoint_path: str):
         dloader.states,
         dloader.tasks,
     )
-    agent.load(checkpoint_path, keep_epoch=False)
+    agent.load(config.checkpoint, config.keep_epoch)
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
@@ -82,7 +84,7 @@ def entry_point():
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )
 
-    train_agent(config, checkpoint_path)
+    train_agent(config)
 
 
 if __name__ == "__main__":

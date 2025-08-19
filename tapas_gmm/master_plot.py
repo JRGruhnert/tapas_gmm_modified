@@ -311,8 +311,8 @@ def entry_point():
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
     # Build results path from config
-    # results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
-    results_path = "results/gnn4/new_normal_min/"
+    results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
+    # results_path = "results/gnn4/new_normal_min/"
     print(f"Analyzing results from: {results_path}")
 
     analyzer = RolloutAnalyzer(results_path)
