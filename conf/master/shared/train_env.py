@@ -6,6 +6,14 @@ env = MasterEnvConfig(
     debug_vis=False,
 )
 
+env_negative = MasterEnvConfig(
+    calvin_config=calvin_env_config,
+    debug_vis=False,
+    min_reward=-1.0,
+    p_empty=0.5,
+    p_rand=0.0,
+)
+
 debug_env = MasterEnvConfig(
     calvin_config=calvin_env_config,
     debug_vis=True,

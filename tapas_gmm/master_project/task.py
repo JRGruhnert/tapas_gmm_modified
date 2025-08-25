@@ -34,6 +34,7 @@ class Task:
             "reversed" not in json_data
             or "conditional" not in json_data
             or "overrides" not in json_data
+            or "id" not in json_data
         ):
             raise ValueError(f"Invalid JSON data for Task {name}")
         if not isinstance(json_data["reversed"], bool):
@@ -47,6 +48,7 @@ class Task:
 
         return cls(
             name=name,
+            id=json_data["id"],
             reversed=json_data["reversed"],
             conditional=json_data["conditional"],
             overrides=[item for item in json_data["overrides"]],
@@ -81,17 +83,20 @@ class Task:
     def __init__(
         self,
         name: str,
+        id: int,
         reversed: bool,
         conditional: bool,
         overrides: list[str],
     ):
         self._name: str = name
+        self._id: int = id
         self._reversed: bool = reversed
         self._conditional: bool = conditional
         self._policy_name: str = "gmm"
         self._overrides_keys: list[str] = overrides
         self._policy: GMMPolicy = self._load_policy()
         self._task_parameters: dict[str, torch.Tensor] = {}
+        self._anti_task_parameters: dict[str, torch.Tensor] = {}
         self._overrides: dict[str, np.ndarray] = {}
         # if self._reversed and len(self._overrides_keys) == 0:
         #     NOTE: Tapas safeguard.
@@ -103,6 +108,10 @@ class Task:
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def id(self) -> int:
+        return self._id
 
     @property
     def reversed(self) -> bool:
@@ -135,6 +144,16 @@ class Task:
     @property
     def task_parameters_keys(self) -> set[str]:
         return self._task_parameters.keys()
+
+    @property
+    def anti_task_parameters(self) -> dict[str, torch.Tensor]:
+        if len(self._anti_task_parameters) == 0:
+            raise ValueError("Anti-task parameters have not been initialized.")
+        return self._anti_task_parameters
+
+    @property
+    def anti_task_parameters_keys(self) -> set[str]:
+        return self._anti_task_parameters.keys()
 
     def _policy_checkpoint_name(self) -> pathlib.Path:
         return (
@@ -220,8 +239,15 @@ class Task:
                 self.reversed,
                 True if state.name in tapas_tp else False,
             )
+            anti_value = state.make_tp(
+                tpgmm.start_values[state.name],
+                tpgmm.end_values[state.name],
+                not self.reversed,
+                True if state.name in tapas_tp else False,
+            )
             if value is not None:
                 self._task_parameters[state.name] = value
+                self._anti_task_parameters[state.name] = anti_value
 
         if verbose:
             logger.info(f"Initialized task parameters for {self.name}:")

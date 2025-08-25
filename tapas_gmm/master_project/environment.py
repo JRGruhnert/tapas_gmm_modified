@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
+import random
 from loguru import logger
 import numpy as np
 import re
@@ -34,6 +35,8 @@ class MasterEnvConfig:
     reward_mode: RewardMode = RewardMode.SPARSE
     max_reward: float = 100.0
     min_reward: float = 0.0
+    p_empty: float = 0.0
+    p_rand: float = 0.0
 
 
 class MasterEnv:
@@ -59,6 +62,7 @@ class MasterEnv:
         self.last_gripper_action = [1.0]  # open
         self.steps_left = self.max_steps
         self.terminal = False
+        self.task: Task = None
 
     def make_eval_surfaces(
         self, surfaces: dict[str, np.ndarray], padding_percent: float
@@ -103,17 +107,28 @@ class MasterEnv:
     @cached_property
     def max_steps(self) -> int:
         "Every Step is one task, so the maximum steps are the number of tasks. (Not that easy but for this environment it works)"
-        return len(self.tasks)
+        return int(
+            len(self.tasks) * self.config.p_empty
+            + len(self.tasks) * self.config.p_rand
+            + len(self.tasks)
+        )
 
-    def reset(self) -> tuple[MasterObservation, MasterObservation]:
+    def reset(self, task: Task = None) -> tuple[MasterObservation, MasterObservation]:
+
         goal_calvin, _, _, _ = self.env.reset(settle_time=50)
         self.goal = MasterObservation(goal_calvin)
 
         self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
         self.current = MasterObservation(self.current_calvin)
-        while self.completion_check():  # Ensure that they are not the same
-            self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
-            self.current = MasterObservation(self.current_calvin)
+        if task:
+            self.task = task
+            while not self.startposition_check(task):
+                self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
+                self.current = MasterObservation(self.current_calvin)
+        else:
+            while self.completion_check():  # Ensure that they are not the same
+                self.current_calvin, _, _, _ = self.env.reset(settle_time=50)
+                self.current = MasterObservation(self.current_calvin)
 
         self.steps_left = self.max_steps
         self.terminal = False
@@ -127,6 +142,27 @@ class MasterEnv:
     def step(
         self, task: Task, verbose: bool = False
     ) -> tuple[float, bool, MasterObservation]:
+        sample = random.random()
+        if sample < self.config.p_empty:  # 0-p_empty>
+            logger.warning("Taking Empty Step")
+            self.empty_step()
+        elif sample < self.config.p_empty + self.config.p_rand:  # 0-p_empty + p_rand>
+            logger.warning("Taking Random Step")
+            self.random_step(verbose=verbose)
+        else:  # The rest
+            self.normal_step(task, verbose=verbose)
+        self.steps_left -= 1
+        reward, done = self.evaluate()
+        return reward, done, self.current
+
+    def empty_step(self):
+        pass
+
+    def random_step(self, verbose: bool = False):
+        rnd = random.choice(self.tasks)
+        self.normal_step(rnd, verbose=verbose)
+
+    def normal_step(self, task: Task, verbose: bool = False):
         viz_dict = {}  # TODO: Make available
         task.policy.reset_episode(self.env)
         # Batch prediction for the given observation
@@ -152,9 +188,6 @@ class MasterEnv:
             # At some point the model crashes.
             # Have to debug if its because of bad input but seems to be not relevant for training
             print(f"Error happened!")
-        self.steps_left -= 1
-        reward, done = self.evaluate()
-        return reward, done, self.current
 
     def wrapped_direct_step(
         self, action: np.ndarray, verbose: bool = False
@@ -184,16 +217,52 @@ class MasterEnv:
                 "Episode already ended. Please reset the evaluator with the new goal and state."
             )
         if self.config.reward_mode is RewardMode.SPARSE:
+            if self.task:
+                if self.endposition_check(self.task):
+                    return self.config.max_reward, True
+                else:
+                    return self.config.min_reward, False
             if self.completion_check():
-                self.terminal = True
-                return self.config.max_reward, self.terminal
+                return self.config.max_reward, True
             else:
-                self.terminal = False if self.steps_left > 0 else True
-                return self.config.min_reward, self.terminal
+                return self.config.min_reward, False if self.steps_left > 0 else True
         if self.config.reward_mode is RewardMode.ONOFF:
             raise NotImplementedError("Reward Mode not implemented.")
         if self.config.reward_mode is RewardMode.RANGE:
             raise NotImplementedError("Reward Mode not implemented.")
+
+    def startposition_check(self, task: Task) -> bool:
+        ##### Checking if start position is reached
+        for state in self.states:
+            if state.name in task.task_parameters_keys:
+                if task.reversed:
+                    value = task.anti_task_parameters[state.name]
+                else:
+                    value = task.task_parameters[state.name]
+                start_reached = state.evaluate_success_condition(
+                    self.current.states[state.name],
+                    value,
+                    self.eval_surfaces,
+                )
+            if not start_reached:
+                return False  # Early exit if start position is not reached
+        return True
+
+    def endposition_check(self, task: Task) -> bool:
+        ##### Checking if end position is reached
+        for state in self.states:
+            if state.name in task.task_parameters_keys:
+                if task.reversed:
+                    value = task.anti_task_parameters[state.name]
+                else:
+                    value = task.anti_task_parameters[state.name]
+                end_reached = state.evaluate_success_condition(
+                    self.current.states[state.name],
+                    value,
+                    self.eval_surfaces,
+                )
+            if not end_reached:
+                return False  # Early exit if end position is not reached
 
     def completion_check(self) -> bool:
         ##### Checking if goal is reached

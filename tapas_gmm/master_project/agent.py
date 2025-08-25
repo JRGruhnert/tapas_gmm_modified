@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import os
+from typing import Any
 import torch
 from torch import nn
 import torch
@@ -49,6 +50,7 @@ class MasterAgent:
     ):
         # Hyperparameters
         self.config = config
+        self.nt: NetworkType = nt
         Net = import_network(nt)
         print("Using network:", nt)
         ### Initialize the agent
@@ -321,7 +323,20 @@ class MasterAgent:
             checkpoint_path,
         )
 
-    def load(self, checkpoint_path: str, keep_epoch: bool):
+    def load(self, checkpoint_path: str):
+        """
+        Load the model from the specified path.
+        """
+        if self.nt in {
+            NetworkType.BASELINE_TEST,
+            NetworkType.BASELINE_V1,
+            NetworkType.BASELINE_V2,
+        }:
+            self.load_baseline(checkpoint_path)
+        else:
+            self.load_gnn(checkpoint_path)
+
+    def load_gnn(self, checkpoint_path: str):
         """
         Load the model from the specified path.
         """
@@ -331,6 +346,57 @@ class MasterAgent:
 
         self.policy_old.load_state_dict(checkpoint["model_state"])
         self.policy_new.load_state_dict(checkpoint["model_state"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
-        if keep_epoch:
-            self.current_epoch = checkpoint["epoch"]  # redundant, but explicit
+        # self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        # if keep_epoch:
+        #    self.current_epoch = checkpoint["epoch"]  # redundant, but explicit
+
+    def load_baseline(self, checkpoint_path: str):
+        """Load state_dict and expand dimensions where needed"""
+
+        # Load the checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        old_state_dict: dict[str, torch.Tensor] = (
+            checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
+        )
+
+        # Get current model state dict
+        new_state_dict = self.policy_old.state_dict()
+
+        # Copy compatible weights
+        for name, old_param in old_state_dict.items():
+            if name in new_state_dict:
+                new_param = new_state_dict[name]
+
+                # Check if dimensions match
+                if old_param.shape == new_param.shape:
+                    # Direct copy
+                    new_state_dict[name] = old_param
+                elif len(old_param.shape) == len(new_param.shape):
+                    # Same number of dimensions, try partial copy
+                    new_state_dict[name] = self.expand_tensor_dims(
+                        old_param, new_param.shape
+                    )
+                else:
+                    print(
+                        f"Skipping {name}: incompatible shapes {old_param.shape} -> {new_param.shape}"
+                    )
+
+        # Load the modified state dict
+        self.policy_old.load_state_dict(new_state_dict, strict=True)
+        self.policy_new.load_state_dict(new_state_dict, strict=True)
+
+    def expand_tensor_dims(self, old_tensor, target_shape):
+        """Expand tensor dimensions by copying/padding"""
+        old_shape = old_tensor.shape
+        new_tensor = torch.zeros(target_shape, dtype=old_tensor.dtype)
+
+        # Copy the overlapping dimensions
+        slices = []
+        for i, (old_dim, new_dim) in enumerate(zip(old_shape, target_shape)):
+            if old_dim <= new_dim:
+                slices.append(slice(0, old_dim))
+            else:
+                slices.append(slice(0, new_dim))
+
+        new_tensor[tuple(slices)] = old_tensor[tuple(slices)]
+        return new_tensor

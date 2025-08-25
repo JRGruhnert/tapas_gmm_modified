@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
+import random
+from loguru import logger
+import numpy as np
 from omegaconf import OmegaConf, SCMode
 
 from tapas_gmm.master_project.dloader import DataLoader
@@ -53,7 +56,7 @@ def train_agent(config: MasterConfig):
             print(
                 f"""
                 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-                Batch Duration: {start_time_learning - start_time_batch}
+                Batch Duration: {start_time_batch - start_time_learning}
                 Learn Duration: {end_time_learning - start_time_learning}
                 Elapsed Time:   {end_time_learning - start_time}
                 Current Time:   {end_time_learning}
@@ -77,6 +80,10 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
+    dict_config["tag"] = (
+        dict_config["tag"]
+        + f"_pe_{dict_config['env']['p_empty']}_pr_{dict_config['env']['p_rand']}"
+    )
     config = OmegaConf.to_container(
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )

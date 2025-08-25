@@ -12,7 +12,9 @@ class DataLoader:
         verbose: bool = False,
     ):
         self._states = State.from_json_list(state_space)
+        self._states.sort(key=lambda s: s.id)
         self._tasks = Task.from_json_list(task_space)
+        self._tasks.sort(key=lambda t: t.id)
         for task in self._tasks:
             task.initialize_task_parameters(self._states, verbose)
             task.initialize_overrides(self._states, verbose)

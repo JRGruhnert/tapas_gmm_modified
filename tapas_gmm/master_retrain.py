@@ -47,7 +47,7 @@ def train_agent(config: MasterConfig):
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
             task = agent.act(obs, goal)
-            reward, terminal, obs = env.step(task, verbose=config.verbose)
+            reward, terminal, obs = env.normal_step(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
             start_time_learning = datetime.now().replace(microsecond=0)

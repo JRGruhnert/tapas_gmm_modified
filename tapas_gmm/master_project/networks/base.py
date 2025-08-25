@@ -148,15 +148,6 @@ class BaselineBase(ActorCriticBase):
 
 
 class GnnBase(ActorCriticBase, ABC):
-    def __init__(
-        self,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        for task in self.tasks:
-            task.initialize_task_parameters(self.states)
-
     @abstractmethod
     def to_data(self, obs: MasterObservation, goal: MasterObservation) -> HeteroData:
         pass

@@ -47,7 +47,7 @@ def train_agent(config: MasterConfig):
             env.reset()
         else:
             task_id -= 1  # Adjust for zero-based index
-            env.step(dloader.tasks[task_id], verbose=True)
+            env.normal_step(dloader.tasks[task_id], verbose=True)
 
 
 def entry_point():

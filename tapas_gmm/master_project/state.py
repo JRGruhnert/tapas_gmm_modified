@@ -52,13 +52,14 @@ class State(ABC):
         success: StateSuccess,
         lower_bound: torch.Tensor,
         upper_bound: torch.Tensor,
+        id: int,
     ) -> "State":
         """Factory method using registry"""
         if state_type not in cls._state_registry:
             raise ValueError(f"Unknown state type: {state_type}")
 
         state_class = cls._state_registry[state_type]
-        return state_class(name, state_type, success, lower_bound, upper_bound)
+        return state_class(name, id, state_type, success, lower_bound, upper_bound)
 
     @classmethod
     def from_json(cls, name: str, json_data: dict) -> "State":
@@ -69,6 +70,7 @@ class State(ABC):
             or "success" not in json_data
             or "lower_bound" not in json_data
             or "upper_bound" not in json_data
+            or "id" not in json_data
         ):
             raise ValueError(f"Invalid JSON data for State {name}")
         if not isinstance(json_data["lower_bound"], list):
@@ -86,6 +88,7 @@ class State(ABC):
             "success": StateSuccess(json_data["success"]),
             "lower_bound": torch.tensor(json_data["lower_bound"], dtype=torch.float32),
             "upper_bound": torch.tensor(json_data["upper_bound"], dtype=torch.float32),
+            "id": json_data["id"],
         }
         # Default implementation for base class or when called directly on subclasses
         return cls._create_state_by_type(**common_args)
@@ -120,12 +123,14 @@ class State(ABC):
     def __init__(
         self,
         name: str,
+        id: int,
         type: StateType,
         success: StateSuccess,
         lower_bound: torch.Tensor,
         upper_bound: torch.Tensor,
     ):
         self._name = name
+        self._id = id
         self._type = type
         self._success = success
         self._lower_bound = lower_bound
@@ -145,6 +150,11 @@ class State(ABC):
     def name(self) -> str:
         """Returns the StateIdent of the state."""
         return self._name
+
+    @property
+    def id(self) -> int:
+        """Returns the ID of the state."""
+        return self._id
 
     @property
     def type(self) -> StateType:
