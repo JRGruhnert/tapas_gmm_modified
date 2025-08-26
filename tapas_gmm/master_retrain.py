@@ -35,7 +35,7 @@ def train_agent(config: MasterConfig):
         dloader.states,
         dloader.tasks,
     )
-    agent.load(config.checkpoint, config.keep_epoch)
+    agent.load(config.checkpoint)
 
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
@@ -47,7 +47,7 @@ def train_agent(config: MasterConfig):
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
             task = agent.act(obs, goal)
-            reward, terminal, obs = env.normal_step(task, verbose=config.verbose)
+            reward, terminal, obs = env.step(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
             start_time_learning = datetime.now().replace(microsecond=0)
@@ -80,6 +80,10 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
+    dict_config["tag"] = (
+        dict_config["tag"]
+        + f"_pe_{dict_config['env']['p_empty']}_pr_{dict_config['env']['p_rand']}"
+    )
     config = OmegaConf.to_container(
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )

@@ -11,9 +11,9 @@ config = MasterConfig(
     task_space=TaskSpace.Normal,
     verbose=True,
     tag="r1",
-    nt=NetworkType.GNN_V4,
+    nt=NetworkType.BASELINE_V1,
     env=env,
     agent=experiment1,
-    checkpoint="results/gnn4/p1_pe_0.0_pr_0.0/model_cp_best.pth",
+    checkpoint="results/baseline1/p1_pe_0.0_pr_0.0/model_cp_best.pth",
     keep_epoch=False,  # Keep the epoch number in the checkpoint
 )
