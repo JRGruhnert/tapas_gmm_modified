@@ -310,6 +310,10 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
+    dict_config["tag"] = (
+        dict_config["tag"]
+        + f"_pe_{dict_config['env']['p_empty']}_pr_{dict_config['env']['p_rand']}"
+    )
     # Build results path from config
     results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
     # results_path = "results/gnn4/new_normal_min/"
