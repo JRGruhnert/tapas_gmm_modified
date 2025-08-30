@@ -10,8 +10,8 @@ env_negative = MasterEnvConfig(
     calvin_config=calvin_env_config,
     debug_vis=False,
     min_reward=-1.0,
-    p_empty=0.6,
-    p_rand=0.0,
+    p_empty=0.0,
+    p_rand=0.1,
 )
 
 debug_env = MasterEnvConfig(
