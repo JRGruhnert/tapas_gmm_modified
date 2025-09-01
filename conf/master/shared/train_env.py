@@ -11,7 +11,7 @@ env_negative = MasterEnvConfig(
     debug_vis=False,
     min_reward=-1.0,
     p_empty=0.0,
-    p_rand=0.5,
+    p_rand=0.6,
 )
 
 debug_env = MasterEnvConfig(
