@@ -1,5 +1,7 @@
+from functools import cached_property
 import os
 import glob
+import re
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,7 +10,7 @@ import argparse
 
 
 class RolloutAnalyzer:
-    def __init__(self, path: str):
+    def __init__(self, path: str, p_empty: float, p_rand: float):
         """
         Initialize analyzer with path to directory containing .pt files
 
@@ -17,8 +19,7 @@ class RolloutAnalyzer:
         """
         self.data_path = path + "logs/"
         self.save_path = path
-        self.batch_data = {}
-        self.summary_stats = {}
+        self.summary_stats = self.compute_summary_stats(p_empty, p_rand)
 
     def load_all_batches(self) -> Dict[int, Dict]:
         """Load all rollout buffer files and return combined data"""
@@ -37,6 +38,7 @@ class RolloutAnalyzer:
 
         print(f"Found {len(files)} rollout files")
 
+        ready_data = {}
         for file_path in sorted(files):
             try:
                 # Extract epoch number from filename
@@ -55,14 +57,14 @@ class RolloutAnalyzer:
                     "terminals": data["terminals"].numpy(),
                 }
 
-                self.batch_data[epoch] = batch_data
+                ready_data[epoch] = batch_data
                 print(f"Loaded epoch {epoch}: {len(batch_data['rewards'])} timesteps")
 
             except Exception as e:
                 print(f"Error loading {file_path}: {e}")
                 continue
 
-        return self.batch_data
+        return ready_data
 
     def compute_batch_stats(self, batch_data: Dict) -> Dict:
         """Compute statistics for a single batch"""
@@ -109,32 +111,15 @@ class RolloutAnalyzer:
             ),
         }
 
-    def compute_summary_stats(self) -> Dict:
+    def compute_summary_stats(self, p_empty: float, p_random: float) -> Dict:
         """Compute summary statistics across all batches"""
-        if not self.batch_data:
-            self.load_all_batches()
+        batch_data = self.load_all_batches()
 
         # Check if we have any data
-        if not self.batch_data:
-            print("No batch data found. Cannot compute statistics.")
-            self.summary_stats = {
-                "batch_summaries": {},
-                "overall": {
-                    "total_timesteps": 0,
-                    "total_batches": 0,
-                    "total_episodes": 0,
-                    "mean_episode_reward": 0.0,
-                    "std_episode_reward": 0.0,
-                    "min_episode_reward": 0.0,
-                    "max_episode_reward": 0.0,
-                    "mean_value": 0.0,
-                    "std_value": 0.0,
-                    "mean_success_rate": 0.0,
-                    "mean_episode_length": 0.0,
-                },
-            }
-            return self.summary_stats
-
+        if not batch_data:
+            raise ValueError(
+                "No batch data available for computing summary statistics."
+            )
         # Compute stats for each batch
         batch_summaries = {}
         all_episode_rewards = []
@@ -144,7 +129,7 @@ class RolloutAnalyzer:
         total_timesteps = 0
         total_episodes = 0
 
-        for epoch, batch_data in self.batch_data.items():
+        for epoch, batch_data in batch_data.items():
             batch_stats = self.compute_batch_stats(batch_data)
             batch_summaries[epoch] = batch_stats
 
@@ -169,8 +154,10 @@ class RolloutAnalyzer:
 
         # Overall statistics
         overall_stats = {
+            "p_empty": p_empty,
+            "p_random": p_random,
             "total_timesteps": total_timesteps,
-            "total_batches": len(self.batch_data),
+            "total_batches": len(batch_data),
             "total_episodes": total_episodes,
             "mean_episode_reward": (
                 np.mean(all_episode_rewards) if all_episode_rewards else 0.0
@@ -192,6 +179,9 @@ class RolloutAnalyzer:
             "mean_episode_length": (
                 np.mean(all_episode_lengths) if all_episode_lengths else 0.0
             ),
+            "max_success_rate": (
+                np.amax(all_success_rates) if all_success_rates else 0.0
+            ),
         }
 
         self.summary_stats = {
@@ -203,9 +193,6 @@ class RolloutAnalyzer:
 
     def print_analysis(self):
         """Print comprehensive analysis of the rollout data"""
-        if not self.summary_stats:
-            self.compute_summary_stats()
-
         print("\n" + "=" * 50)
         print("ROLLOUT ANALYSIS SUMMARY")
         print("=" * 50)
@@ -243,9 +230,6 @@ class RolloutAnalyzer:
 
     def plot_training_curves(self):
         """Plot training progress over time"""
-        if not self.summary_stats:
-            self.compute_summary_stats()
-
         batch_summaries = self.summary_stats["batch_summaries"]
         if not batch_summaries:
             print("No data to plot")
@@ -319,9 +303,80 @@ def entry_point():
     # results_path = "results/gnn4/new_normal_min/"
     print(f"Analyzing results from: {results_path}")
 
-    analyzer = RolloutAnalyzer(results_path)
-    analyzer.print_analysis()
-    analyzer.plot_training_curves()
+    pattern = re.compile(r"_pe_(?P<p_empty>[0-9.]+)_pr_(?P<p_rand>[0-9.]+)")
+
+    files = glob.glob(f"results/{dict_config.nt.value}/*", recursive=True)
+
+    analyzers: list[RolloutAnalyzer] = []
+    for file in files:
+        match = pattern.search(file)
+        if match:
+            p_empty = float(match.group("p_empty"))
+            p_rand = float(match.group("p_rand"))
+            print(f"File: {file}")
+            print(f"p_empty: {p_empty}, p_rand: {p_rand}")
+
+            analyzer = RolloutAnalyzer(file, p_empty=p_empty, p_rand=p_rand)
+            analyzers.append(analyzer)
+
+    # Collect data from analyzers
+    p_empty_list = []
+    p_rand_list = []
+    max_success_list = []
+    mean_success_list = []
+
+    for analyzer in analyzers:
+        analyzer.print_analysis()
+        analyzer.plot_training_curves()
+        stats = analyzer.summary_stats["overall"]
+        p_empty_list.append(stats["p_empty"])
+        p_rand_list.append(stats["p_random"])
+        max_success_list.append(stats["max_success_rate"])
+        mean_success_list.append(stats["mean_success_rate"])
+
+    # Plot max/mean success rate vs p_empty
+    plt.figure(figsize=(8, 5))
+    plt.scatter(
+        p_empty_list, mean_success_list, label="Mean Success Rate", color="blue", s=80
+    )
+    plt.scatter(
+        p_empty_list,
+        max_success_list,
+        label="Max Success Rate",
+        color="orange",
+        s=80,
+        marker="x",
+    )
+    plt.xlabel("p_empty")
+    plt.ylabel("Success Rate")
+    plt.title("Mean and Max Success Rate vs p_empty")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("mean_max_success_vs_p_empty.png", dpi=300)
+    plt.show()
+
+    # Plot max/mean success rate vs p_rand
+    plt.figure(figsize=(8, 5))
+    plt.scatter(
+        p_rand_list, mean_success_list, label="Mean Success Rate", color="blue", s=80
+    )
+    plt.scatter(
+        p_rand_list,
+        max_success_list,
+        label="Max Success Rate",
+        color="orange",
+        s=80,
+        marker="x",
+    )
+    plt.xlabel("p_rand")
+    plt.ylabel("Success Rate")
+    plt.title("Mean and Max Success Rate vs p_rand")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig("mean_max_success_vs_p_rand.png", dpi=300)
+    plt.show()
 
 
 if __name__ == "__main__":
