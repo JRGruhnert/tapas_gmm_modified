@@ -1,5 +1,5 @@
-from conf.master.shared.train_env import env_negative
 from conf.master.shared.agent import experiment1
+from conf.master.shared.train_env import env_baseline
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.master_project.state import StateSpace
 from tapas_gmm.master_project.task import TaskSpace
@@ -8,8 +8,8 @@ from tapas_gmm.master_train import MasterConfig
 
 config = MasterConfig(
     tag="p1",
-    nt=NetworkType.GNN_V4,
-    env=env_negative,
+    nt=NetworkType.BASELINE_V1,
+    env=env_baseline,
     agent=experiment1,
     state_space=StateSpace.Minimal,
     task_space=TaskSpace.Minimal,

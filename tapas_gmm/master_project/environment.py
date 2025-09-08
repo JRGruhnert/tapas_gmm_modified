@@ -34,7 +34,7 @@ class MasterEnvConfig:
     # Reward Settings
     reward_mode: RewardMode = RewardMode.SPARSE
     max_reward: float = 100.0
-    min_reward: float = 0.0
+    min_reward: float = -1.0
     p_empty: float = 0.0
     p_rand: float = 0.0
 

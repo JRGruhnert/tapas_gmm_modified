@@ -17,11 +17,13 @@ from tapas_gmm.master_project.task import Task
 class AgentConfig:
     # Default values
     early_stop_patience: int = 5
+    min_sampling_epochs: int = 10
     max_batches: int = 50
     saving_freq: int = 5  # Saving frequence of trained model
     saving_path: str = "results/"
 
-    save_stats = True
+    eval_mode: bool = False
+    save_stats: bool = True
     batch_size: int = 2048
     mini_batch_size: int = 64  # 64 # How many steps to use in each mini-batch
     learning_epochs: int = 50  # How many passes over the collected batch per update
@@ -89,7 +91,9 @@ class MasterAgent:
             )
 
         with torch.no_grad():
-            action, action_logprob, state_val = self.policy_old.act(obs, goal)
+            action, action_logprob, state_val = self.policy_old.act(
+                obs, goal, self.config.eval_mode
+            )
 
         self.buffer.obs.append(obs)
         self.buffer.goal.append(goal)
@@ -143,6 +147,10 @@ class MasterAgent:
         assert self.buffer.health(), "Rollout buffer not in sync"
         assert len(self.buffer.obs) == self.config.batch_size, "Batch size mismatch"
 
+        # Saves batch values
+        if self.config.save_stats:
+            self.buffer.save(self.log_path, self.current_epoch)
+
         total_reward, episode_length, success_rate = self.buffer.stats()
         if verbose:
 
@@ -163,7 +171,10 @@ class MasterAgent:
         else:
             self.epochs_since_improvement += 1
 
-        if self.epochs_since_improvement >= self.config.early_stop_patience:
+        if (
+            self.epochs_since_improvement >= self.config.early_stop_patience
+            and self.config.min_sampling_epochs <= self.current_epoch
+        ):
             print("Aborting Training cause of no improvement.")
             return True
 
@@ -276,10 +287,6 @@ class MasterAgent:
 
         ### Copy new weights into old policy
         self.policy_old.load_state_dict(self.policy_new.state_dict())
-
-        # Saves batch values
-        if self.config.save_stats:
-            self.buffer.save(self.log_path, self.current_epoch)
 
         # Clear buffer
         self.buffer.clear()

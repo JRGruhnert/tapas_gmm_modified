@@ -1,27 +1,30 @@
-from functools import cached_property
+import os
+import glob
 import os
 import glob
 import re
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, List, Tuple
-import argparse
+
+# Set a global style for all plots
+print(plt.style.available)
+plt.style.use("seaborn-v0_8")
 
 
 class RolloutAnalyzer:
-    def __init__(self, path: str, p_empty: float, p_rand: float):
+    def __init__(self, path: str):
         """
         Initialize analyzer with path to directory containing .pt files
 
         Args:
             data_path: Path to directory containing stats_epoch_*.pt files
         """
-        self.data_path = path + "logs/"
+        self.data_path = path + "/logs/"
         self.save_path = path
-        self.summary_stats = self.compute_summary_stats(p_empty, p_rand)
+        self.summary_stats = self.compute_summary_stats()
 
-    def load_all_batches(self) -> Dict[int, Dict]:
+    def load_all_batches(self) -> dict[int, dict]:
         """Load all rollout buffer files and return combined data"""
         # Updated pattern for new file format
         pattern = os.path.join(self.data_path, "stats_epoch_*.pt")
@@ -66,7 +69,7 @@ class RolloutAnalyzer:
 
         return ready_data
 
-    def compute_batch_stats(self, batch_data: Dict) -> Dict:
+    def compute_batch_stats(self, batch_data: dict) -> dict:
         """Compute statistics for a single batch"""
         rewards = batch_data["rewards"]
         terminals = batch_data["terminals"]
@@ -111,7 +114,7 @@ class RolloutAnalyzer:
             ),
         }
 
-    def compute_summary_stats(self, p_empty: float, p_random: float) -> Dict:
+    def compute_summary_stats(self) -> dict:
         """Compute summary statistics across all batches"""
         batch_data = self.load_all_batches()
 
@@ -154,8 +157,6 @@ class RolloutAnalyzer:
 
         # Overall statistics
         overall_stats = {
-            "p_empty": p_empty,
-            "p_random": p_random,
             "total_timesteps": total_timesteps,
             "total_batches": len(batch_data),
             "total_episodes": total_episodes,
@@ -173,15 +174,11 @@ class RolloutAnalyzer:
             ),
             "mean_value": np.mean(all_values) if all_values else 0.0,
             "std_value": np.std(all_values) if all_values else 0.0,
-            "mean_success_rate": (
-                np.mean(all_success_rates) if all_success_rates else 0.0
-            ),
+            "mean_sr": (np.mean(all_success_rates) if all_success_rates else 0.0),
             "mean_episode_length": (
                 np.mean(all_episode_lengths) if all_episode_lengths else 0.0
             ),
-            "max_success_rate": (
-                np.amax(all_success_rates) if all_success_rates else 0.0
-            ),
+            "max_sr": (np.amax(all_success_rates) if all_success_rates else 0.0),
         }
 
         self.summary_stats = {
@@ -208,7 +205,7 @@ class RolloutAnalyzer:
             f"Episode Reward Range: [{overall['min_episode_reward']:.2f}, {overall['max_episode_reward']:.2f}]"
         )
         print(f"Mean Episode Length: {overall['mean_episode_length']:.1f} steps")
-        print(f"Success Rate: {overall['mean_success_rate']:.1%}")
+        print(f"Success Rate: {overall['mean_sr']:.1%}")
         print(
             f"Mean Value Estimate: {overall['mean_value']:.3f} ± {overall['std_value']:.3f}"
         )
@@ -286,7 +283,195 @@ class RolloutAnalyzer:
         plot_path = os.path.join(self.save_path, "training_curves.png")
         plt.savefig(plot_path, dpi=300, bbox_inches="tight")
         print(f"Training curves saved to: {plot_path}")
-        plt.show()
+
+
+def plot_stats_vs_epoch(
+    data: dict[str, dict[str, dict[str, list[float]]]],
+    tag: str,
+):
+    for name, rows in data[tag].items():
+        plt.figure(figsize=(8, 5))
+        x = rows["p"]
+        for label, y in rows.items():
+            if label != "p":
+                plt.scatter(
+                    x,
+                    y,
+                    label=label,
+                )
+        plt.xlabel(f"{name}")
+        plt.ylabel("Success Rate")
+        plt.title(f"Success Rate vs {name}")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f"{tag}_sr_vs_{name}.png", dpi=300)
+
+
+def plot_stats_vs_epoch_concat(
+    data: dict[str, dict[str, dict[str, list[float]]]],
+    tag1: str,
+    tag2: str,
+):
+    for name, rows in data[tag1].items():
+        plt.figure(figsize=(8, 5))
+        x = rows["p"]
+        for label, y in rows.items():
+            plt.scatter(
+                x,
+                y,
+                label=label,
+            )
+        plt.xlabel(f"{name}")
+        plt.ylabel("Success Rate")
+        plt.title(f"Success Rate vs {name}")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(f"{tag1}_sr_vs_{name}.png", dpi=300)
+
+        # Plot retrain r1 vs p1
+        # r1
+        # r2
+        rs = ["r1", "r2"]
+        for r in rs:
+            r_stats = [s for s in stats if s["tag"] == r]
+
+            for r_s in r_stats:
+                p1_s = next(
+                    (
+                        p
+                        for p in p1_stats
+                        if p["pe"] == r_s["pe"] and p["pr"] == r_s["pr"]
+                    ),
+                    None,
+                )
+                if not p1_s:
+                    print(f"Did not find matching p1_stats for {r}_stats: {r_s}")
+                    continue
+
+                plot_retrain(
+                    list(range(p1_s["total_batches"])),
+                    list(
+                        range(
+                            p1_s["total_batches"],
+                            p1_s["total_batches"] + r_s["total_batches"],
+                        )
+                    ),
+                    p1_s["max_sr"],
+                    r_s["max_sr"],
+                    f"{r}_pe_{r_s['pe']}_pr_{r_s['pr']}_{r}",
+                    show=True,
+                )
+        r_stats = [s for s in stats if s["tag"] == "r2"]
+        r_stats = [s for s in stats if s["tag"] == "r1"]
+
+        for r_s in r_stats:
+            p1_s = next(
+                (p for p in p1_stats if p["pe"] == r_s["pe"] and p["pr"] == r_s["pr"]),
+                None,
+            )
+            if not p1_s:
+                print(f"Did not find matching p1_stats for r1_stats: {r_s}")
+
+            plot_retrain(
+                list(range(p1_s["total_batches"])),
+                list(
+                    range(
+                        p1_s["total_batches"],
+                        p1_s["total_batches"] + r_s["total_batches"],
+                    )
+                ),
+                p1_s["max_sr"],
+                r_s["max_sr"],
+                f"r1_pe_{r_s['pe']}_pr_{r_s['pr']}_r1",
+                show=True,
+            )
+
+
+def plot_stats_vs_p(
+    data: dict[str, dict[str, dict[str, list[float]]]],
+    tag: str,
+):
+    # Plot max success rate vs all p
+    plt.figure(figsize=(8, 5))
+    for name, rows in data[tag].items():
+        x = rows["p"]
+        for label, y in rows.items():
+            if label != "p":
+                plt.scatter(
+                    x,
+                    y,
+                    label=f"{name}_{label}",
+                )
+    plt.xlabel("p")
+    plt.ylabel("Success Rate")
+    plt.title("Success Rate vs p")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"{tag}_sr_vs_p.png", dpi=300)
+
+
+def plot_stats_direct(
+    data: dict[str, dict[str, dict[str, list[float]]]],
+    tag: str,
+):
+    plt.figure(figsize=(8, 5))
+    for name, rows in data[tag].items():
+        x = rows["p"]
+        for label, y in rows.items():
+            if label != "p":
+                plt.scatter(
+                    x,
+                    y,
+                    label=label,
+                )
+    # Plot max success rate vs all p
+    plt.figure(figsize=(8, 5))
+    for name, rows in data[tag].items():
+        x = rows.pop("p")
+        for label, y in rows.items():
+            if label != "p":
+                plt.scatter(
+                    x,
+                    y,
+                    label=label,
+                )
+    plt.xlabel("p")
+    plt.ylabel("Success Rate")
+    plt.title("Success Rate vs p")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"{tag}_sr_vs_p.png", dpi=300)
+
+
+def plot_retrain(
+    x1: list[float],
+    x2: list[float],
+    y1: list[float],
+    y2: list[float],
+    name: str,
+):
+    plt.figure(figsize=(8, 5))
+    plt.scatter(
+        x1,
+        y1,
+        label="P1",
+    )
+    plt.scatter(
+        x2,
+        y2,
+        label="R1",
+    )
+    plt.xlabel("p (%)")
+    plt.ylabel("Max Success Rate")
+    plt.title("Max Success Rate vs p")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f"{name}.png", dpi=300)
 
 
 def entry_point():
@@ -294,89 +479,59 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    dict_config["tag"] = (
-        dict_config["tag"]
-        + f"_pe_{dict_config['env']['p_empty']}_pr_{dict_config['env']['p_rand']}"
-    )
-    # Build results path from config
-    results_path = f"results/{dict_config.nt.value}/{dict_config.tag}/"
-    # results_path = "results/gnn4/new_normal_min/"
-    print(f"Analyzing results from: {results_path}")
+    show_plots = False
+    tags = ["p1", "p2", "r1", "r2"]
+    p_tags = ["p1", "p2"]
+    r_tags = ["r1", "r2"]
 
-    pattern = re.compile(r"_pe_(?P<p_empty>[0-9.]+)_pr_(?P<p_rand>[0-9.]+)")
-
+    pattern = re.compile(r"(?P<tag>.+?)_pe_(?P<pe>[0-9.]+)_pr_(?P<pr>[0-9.]+)")
     files = glob.glob(f"results/{dict_config.nt.value}/*", recursive=True)
 
-    analyzers: list[RolloutAnalyzer] = []
+    stats = []
     for file in files:
         match = pattern.search(file)
         if match:
-            p_empty = float(match.group("p_empty"))
-            p_rand = float(match.group("p_rand"))
-            print(f"File: {file}")
-            print(f"p_empty: {p_empty}, p_rand: {p_rand}")
+            analyzer = RolloutAnalyzer(file)
+            analyzer.print_analysis()
+            analyzer.plot_training_curves()
+            stats.append(
+                {
+                    **analyzer.summary_stats["overall"],
+                    "pe": float(match.group("pe")),
+                    "pr": float(match.group("pr")),
+                    "tag": match.group("tag"),
+                }
+            )
 
-            analyzer = RolloutAnalyzer(file, p_empty=p_empty, p_rand=p_rand)
-            analyzers.append(analyzer)
+    plot_dict = {}
+    for tag in tags:
+        tag_stats = [s for s in stats if s["tag"] == tag]
+        plot_dict[tag] = {  # p1, p2, r1, r2
+            "p_empty": {
+                "p": [s["pe"] for s in tag_stats if s["pr"] == 0],
+                "mean_sr": [s["mean_sr"] for s in tag_stats if s["pr"] == 0],
+                "max_sr": [s["max_sr"] for s in tag_stats if s["pr"] == 0],
+            },
+            "p_rand": {
+                "p": [s["pr"] for s in tag_stats if s["pe"] == 0],
+                "mean_sr": [s["mean_sr"] for s in tag_stats if s["pe"] == 0],
+                "max_sr": [s["max_sr"] for s in tag_stats if s["pe"] == 0],
+            },
+            "p_mix": {
+                "p": [s["pe"] * 2 for s in tag_stats if s["pe"] == s["pr"]],
+                "mean_sr": [s["mean_sr"] for s in tag_stats if s["pe"] == s["pr"]],
+                "max_sr": [s["max_sr"] for s in tag_stats if s["pe"] == s["pr"]],
+            },
+        }
+        plot_stats_vs_epoch(plot_dict, tag)
 
-    # Collect data from analyzers
-    p_empty_list = []
-    p_rand_list = []
-    max_success_list = []
-    mean_success_list = []
+        plot_stats_vs_p(plot_dict, tag)
 
-    for analyzer in analyzers:
-        analyzer.print_analysis()
-        analyzer.plot_training_curves()
-        stats = analyzer.summary_stats["overall"]
-        p_empty_list.append(stats["p_empty"])
-        p_rand_list.append(stats["p_random"])
-        max_success_list.append(stats["max_success_rate"])
-        mean_success_list.append(stats["mean_success_rate"])
+    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
 
-    # Plot max/mean success rate vs p_empty
-    plt.figure(figsize=(8, 5))
-    plt.scatter(
-        p_empty_list, mean_success_list, label="Mean Success Rate", color="blue", s=80
-    )
-    plt.scatter(
-        p_empty_list,
-        max_success_list,
-        label="Max Success Rate",
-        color="orange",
-        s=80,
-        marker="x",
-    )
-    plt.xlabel("p_empty")
-    plt.ylabel("Success Rate")
-    plt.title("Mean and Max Success Rate vs p_empty")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig("mean_max_success_vs_p_empty.png", dpi=300)
-    plt.show()
+    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
 
-    # Plot max/mean success rate vs p_rand
-    plt.figure(figsize=(8, 5))
-    plt.scatter(
-        p_rand_list, mean_success_list, label="Mean Success Rate", color="blue", s=80
-    )
-    plt.scatter(
-        p_rand_list,
-        max_success_list,
-        label="Max Success Rate",
-        color="orange",
-        s=80,
-        marker="x",
-    )
-    plt.xlabel("p_rand")
-    plt.ylabel("Success Rate")
-    plt.title("Mean and Max Success Rate vs p_rand")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig("mean_max_success_vs_p_rand.png", dpi=300)
-    plt.show()
+    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
 
 
 if __name__ == "__main__":

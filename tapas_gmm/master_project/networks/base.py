@@ -77,6 +77,7 @@ class ActorCriticBase(nn.Module, ABC):
         self,
         obs: MasterObservation,
         goal: MasterObservation,
+        eval_mode: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         logits, value = self.forward([obs], [goal])
         assert logits.shape == (
@@ -86,7 +87,10 @@ class ActorCriticBase(nn.Module, ABC):
         assert value.shape == (1,), f"Expected value shape ({1},), got {value.shape}"
 
         dist = Categorical(logits=logits)
-        action = dist.sample()  # shape: [B]
+        if eval_mode:
+            action = dist.probs.argmax(dim=-1)
+        else:
+            action = dist.sample()  # shape: [B]
         logprob = dist.log_prob(action)  # shape: [B]
         return action.detach(), logprob.detach(), value.detach()
 

@@ -12,7 +12,7 @@ from tapas_gmm.utils.argparse import parse_and_build_config
 
 
 @dataclass
-class MasterConfig:
+class RetrainConfig:
     state_space: StateSpace
     task_space: TaskSpace
     tag: str
@@ -24,7 +24,7 @@ class MasterConfig:
     verbose: bool = True
 
 
-def train_agent(config: MasterConfig):
+def train_agent(config: RetrainConfig):
     # Initialize the environment and agent
     dloader = DataLoader(config.state_space, config.task_space, config.verbose)
     env = MasterEnv(config.env, dloader.states, dloader.tasks)

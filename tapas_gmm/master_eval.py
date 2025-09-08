@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+import os
 import numpy as np
 from omegaconf import OmegaConf, SCMode
 
@@ -18,11 +19,9 @@ class EvalConfig:
     state_space: StateSpace
     task_space: TaskSpace
     tag: str
-    nt: NetworkType
-    agent: AgentConfig
     env: MasterEnvConfig
     verbose: bool = True
-    num_samples: int = 1000
+    num_samples: int = 500
 
 
 def eval_task(config: EvalConfig):
@@ -30,7 +29,7 @@ def eval_task(config: EvalConfig):
     dloader = DataLoader(config.state_space, config.task_space, config.verbose)
     env = MasterEnv(config.env, dloader.states, dloader.tasks)
     buffer = RolloutBuffer()
-
+    os.makedirs("results/tasks", exist_ok=True)
     # track total training time
     start_time = datetime.now().replace(microsecond=0)
     task_stats: dict["str", dict[str, float]] = {}
@@ -39,11 +38,11 @@ def eval_task(config: EvalConfig):
         task_stats[task.name] = {"reward": [], "terminal": []}
         for _ in range(config.num_samples):
             obs, goal = env.reset(task)
-            reward, terminal, obs = env.normal_step(task, verbose=config.verbose)
+            reward, terminal, obs = env.step(task, verbose=config.verbose)
             task_stats[task.name]["reward"].append(reward)
             task_stats[task.name]["terminal"].append(terminal)
         numpy_stats = {k: np.array(v) for k, v in task_stats[task.name].items()}
-        np.savez(f"results/tasks/eval_stats_{task.name}.npz", **numpy_stats)
+        np.savez(f"results/tasks/stats_{task.name}.npz", **numpy_stats)
         end_time_batch = datetime.now().replace(microsecond=0)
         print(
             f"""

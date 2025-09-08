@@ -1,4 +1,4 @@
-from conf.master.shared.train_env import env
+from conf.master.shared.train_env import env_gnn
 from conf.master.shared.agent import experiment1
 from tapas_gmm.master_project.networks import NetworkType
 from tapas_gmm.master_project.state import StateSpace
@@ -7,11 +7,10 @@ from tapas_gmm.master_train import MasterConfig
 
 
 config = MasterConfig(
+    tag="p1",
+    nt=NetworkType.GNN_V4,
+    env=env_gnn,
+    agent=experiment1,
     state_space=StateSpace.Minimal,
     task_space=TaskSpace.Minimal,
-    verbose=True,
-    tag="min_min",
-    nt=NetworkType.GNN_V4,
-    env=env,
-    agent=experiment1,
 )
