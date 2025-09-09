@@ -282,12 +282,12 @@ class RolloutAnalyzer:
         # Save plot
         plot_path = os.path.join(self.save_path, "training_curves.png")
         plt.savefig(plot_path, dpi=300, bbox_inches="tight")
-        print(f"Training curves saved to: {plot_path}")
 
 
 def plot_stats_vs_epoch(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag: str,
+    save_path: str,
 ):
     for name, rows in data[tag].items():
         plt.figure(figsize=(8, 5))
@@ -305,13 +305,15 @@ def plot_stats_vs_epoch(
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.savefig(f"{tag}_sr_vs_{name}.png", dpi=300)
+        plot_path = os.path.join(save_path, f"{tag}_sr_vs_{name}.png")
+        plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def plot_stats_vs_epoch_concat(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag1: str,
     tag2: str,
+    save_path: str,
 ):
     for name, rows in data[tag1].items():
         plt.figure(figsize=(8, 5))
@@ -392,10 +394,12 @@ def plot_stats_vs_epoch_concat(
 def plot_stats_vs_p(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag: str,
+    save_path: str,
 ):
     # Plot max success rate vs all p
     plt.figure(figsize=(8, 5))
     for name, rows in data[tag].items():
+        print(rows.keys())
         x = rows["p"]
         for label, y in rows.items():
             if label != "p":
@@ -410,12 +414,14 @@ def plot_stats_vs_p(
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"{tag}_sr_vs_p.png", dpi=300)
+    plot_path = os.path.join(save_path, f"{tag}_sr_vs_p.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def plot_stats_direct(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag: str,
+    save_path: str,
 ):
     plt.figure(figsize=(8, 5))
     for name, rows in data[tag].items():
@@ -430,7 +436,7 @@ def plot_stats_direct(
     # Plot max success rate vs all p
     plt.figure(figsize=(8, 5))
     for name, rows in data[tag].items():
-        x = rows.pop("p")
+        x = rows["p"]
         for label, y in rows.items():
             if label != "p":
                 plt.scatter(
@@ -444,7 +450,8 @@ def plot_stats_direct(
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"{tag}_sr_vs_p.png", dpi=300)
+    plot_path = os.path.join(save_path, f"{tag}_sr_vs_p.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def plot_retrain(
@@ -453,6 +460,7 @@ def plot_retrain(
     y1: list[float],
     y2: list[float],
     name: str,
+    save_path: str,
 ):
     plt.figure(figsize=(8, 5))
     plt.scatter(
@@ -471,7 +479,8 @@ def plot_retrain(
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"{name}.png", dpi=300)
+    plot_path = os.path.join(save_path, f"{name}.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def entry_point():
@@ -527,11 +536,11 @@ def entry_point():
 
         plot_stats_vs_p(plot_dict, tag)
 
-    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
+    plot_stats_vs_epoch_concat(plot_dict, "p1", "p2", "r1")
 
-    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
+    plot_stats_vs_epoch_concat(plot_dict, "p2", "p1", "r2")
 
-    plot_stats_vs_epoch_concat(plot_dict, "p1", "r1")
+    plot_stats_vs_epoch_concat(plot_dict, "p1", "p3", "r3")
 
 
 if __name__ == "__main__":
