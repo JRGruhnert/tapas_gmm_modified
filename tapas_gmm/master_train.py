@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
-import random
-from loguru import logger
-import numpy as np
 from omegaconf import OmegaConf, SCMode
 
+from conf.master.shared import experiment1
+from conf.master.shared.experiment import ExperimentConfig
 from tapas_gmm.master_project.dloader import DataLoader
 from tapas_gmm.master_project.state import StateSpace
 from tapas_gmm.master_project.task import TaskSpace
@@ -15,23 +14,22 @@ from tapas_gmm.utils.argparse import parse_and_build_config
 
 
 @dataclass
-class MasterConfig:
+class TrainConfig:
     state_space: StateSpace
     task_space: TaskSpace
     tag: str
-    nt: NetworkType
-    agent: AgentConfig
-    env: MasterEnvConfig
-    verbose: bool = True
+    experiment: ExperimentConfig
 
 
-def train_agent(config: MasterConfig):
+def train_agent(config: TrainConfig):
     # Initialize the environment and agent
-    dloader = DataLoader(config.state_space, config.task_space, config.verbose)
-    env = MasterEnv(config.env, dloader.states, dloader.tasks)
+    dloader = DataLoader(
+        config.state_space, config.task_space, config.experiment.verbose
+    )
+    env = MasterEnv(config.experiment.env, dloader.states, dloader.tasks)
     agent = MasterAgent(
-        config.agent,
-        config.nt,
+        config.experiment.agent,
+        config.experiment.nt,
         config.tag,
         dloader.states,
         dloader.tasks,
@@ -47,11 +45,13 @@ def train_agent(config: MasterConfig):
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
             task = agent.act(obs, goal)
-            reward, terminal, obs = env.step(task, verbose=config.verbose)
+            reward, terminal, obs = env.step_exp1(
+                task, verbose=config.experiment.verbose
+            )
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
             start_time_learning = datetime.now().replace(microsecond=0)
-            stop_training = agent.learn(verbose=config.verbose)
+            stop_training = agent.learn(verbose=config.experiment.verbose)
             end_time_learning = datetime.now().replace(microsecond=0)
             print(
                 f"""
@@ -84,6 +84,7 @@ def entry_point():
         dict_config["tag"]
         + f"_pe_{dict_config['env']['p_empty']}_pr_{dict_config['env']['p_rand']}"
     )
+
     config = OmegaConf.to_container(
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )

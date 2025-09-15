@@ -66,17 +66,6 @@ env_gnn = MasterEnvConfig(
 )
 
 
-re_env_gnn = MasterEnvConfig(
-    calvin_config=calvin_env_config,
-    debug_vis=False,
-)
-
-re_env_baseline = MasterEnvConfig(
-    calvin_config=calvin_env_config,
-    debug_vis=False,
-)
-
-
 debug_env = MasterEnvConfig(
     calvin_config=calvin_env_config,
     debug_vis=True,

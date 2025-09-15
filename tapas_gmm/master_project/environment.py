@@ -35,8 +35,6 @@ class MasterEnvConfig:
     reward_mode: RewardMode = RewardMode.SPARSE
     max_reward: float = 100.0
     min_reward: float = -1.0
-    p_empty: float = 0.0
-    p_rand: float = 0.0
 
 
 class MasterEnv:
@@ -60,7 +58,7 @@ class MasterEnv:
         print(f"Eval Surfaces: {self.eval_surfaces}")
 
         self.last_gripper_action = [1.0]  # open
-        self.steps_left = self.max_steps
+        self.max_steps, self.steps_left = max_steps  # Cached property
         self.terminal = False
         self.task: Task = None
 
@@ -139,30 +137,27 @@ class MasterEnv:
         self.reset()
         return self.make_tapas_format(self.current_calvin)
 
-    def step(
-        self, task: Task, verbose: bool = False
+    def step_exp1(
+        self,
+        task: Task,
+        verbose: bool = False,
+        p_empty: float = 0.0,
+        p_rand: float = 0.0,
     ) -> tuple[float, bool, MasterObservation]:
         sample = random.random()
-        if sample < self.config.p_empty:  # 0-p_empty>
+        if sample < p_empty:  # 0-p_empty>
             logger.warning("Taking Empty Step")
-            self.empty_step()
-        elif sample < self.config.p_empty + self.config.p_rand:  # 0-p_empty + p_rand>
+            pass
+        elif sample < p_empty + p_rand:  # 0-p_empty + p_rand>
             logger.warning("Taking Random Step")
-            self.random_step(verbose=verbose)
+            self.step(random.choice(self.tasks), verbose=verbose)
         else:  # The rest
-            self.normal_step(task, verbose=verbose)
+            self.step(task, verbose=verbose)
         self.steps_left -= 1
         reward, done = self.evaluate()
         return reward, done, self.current
 
-    def empty_step(self):
-        pass
-
-    def random_step(self, verbose: bool = False):
-        rnd = random.choice(self.tasks)
-        self.normal_step(rnd, verbose=verbose)
-
-    def normal_step(self, task: Task, verbose: bool = False):
+    def step(self, task: Task, verbose: bool = False):
         viz_dict = {}  # TODO: Make available
         task.policy.reset_episode(self.env)
         # Batch prediction for the given observation

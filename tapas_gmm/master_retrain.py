@@ -47,7 +47,7 @@ def train_agent(config: RetrainConfig):
         obs, goal = env.reset()
         while not terminal and not batch_rdy:
             task = agent.act(obs, goal)
-            reward, terminal, obs = env.step(task, verbose=config.verbose)
+            reward, terminal, obs = env.step_exp1(task, verbose=config.verbose)
             batch_rdy = agent.feedback(reward, terminal)
         if batch_rdy:
             start_time_learning = datetime.now().replace(microsecond=0)
@@ -91,5 +91,16 @@ def entry_point():
     train_agent(config)
 
 
+"""
+
 if __name__ == "__main__":
     entry_point()
+r_config = RetrainConfig(
+    state_space=state_space,
+    task_space=task_space,
+    tag=f"r{p_origin}{p_goal}{suffix}",
+    checkpoint=f"results/{nt.value}/t{p_origin}{suffix}/model_cp_best.pth",
+    keep_epoch=False,  # Keep the epoch number in the checkpoint
+    experiment=experiment1,
+)
+"""
