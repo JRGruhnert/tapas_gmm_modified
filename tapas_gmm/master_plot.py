@@ -191,6 +191,13 @@ class RolloutAnalyzer:
                 if any(np.array(all_success_rates) >= 0.9)
                 else []
             ),
+            "sr_until_95": (
+                all_success_rates[
+                    : int(np.argmax(np.array(all_success_rates) >= 0.95)) + 1
+                ]
+                if any(np.array(all_success_rates) >= 0.95)
+                else []
+            ),
         }
 
         self.summary_stats = {
@@ -355,6 +362,19 @@ def plot_stats_vs_epoch_concat(
         clean_rtagb["sr_until_max"],
         label=rtagb,
     )
+    plt.axhline(
+        y=0.9,
+        color="red",
+        linestyle="--",
+        label="90% Threshold",
+    )
+    plt.axhline(
+        y=0.95,
+        color="orange",
+        linestyle="--",
+        label="95% Threshold",
+    )
+
     # plt.axvline(
     #    x=len(clean_ptagb["sr_until_90"]) + len(clean_ptaga["sr_until_max"]),
     #    color=a.get_facecolor()[0],
@@ -482,43 +502,47 @@ def entry_point():
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    save_path = f"results/{dict_config.nt.value}"
+    save_path = f"results/{dict_config.nt.value}/plots"
     nt = dict_config.nt.value
-    p_tags = ["p1", "p2", "p3"]
-    r_tags = ["r1", "r2", "r3"]
-    tags = p_tags + r_tags
+    t_tags = ["t1", "t2", "t3"]
+    r_tags = ["r12", "r21", "r13", "r23", "r31", "r32"]
+    e_tags = ["e11", "e12", "e13", "e21", "e22", "e23", "e31", "e32", "e33"]
+    tags = t_tags + r_tags + e_tags
     # Create directories if they don't exist
     for tag in tags:
         tag_path = save_path + f"/{tag}"
         os.makedirs(tag_path, exist_ok=True)
 
     tags_pattern = "|".join(tags)
-    pattern = re.compile(
+    file_pattern = re.compile(
         rf"(?P<tag>{tags_pattern})_pe_(?P<pe>[0-9.]+)_pr_(?P<pr>[0-9.]+)"
     )
+    tag_pattern = re.compile(rf"(?P<ident>[a-zA-Z])(?P<origin>\d)(?P<dest>\d)")
 
     files = glob.glob(f"{save_path}/*", recursive=True)
 
-    loaded_stats = []
+    loaded_stats = {"t": [], "r": [], "e": []}
     for file in files:
-        match = pattern.search(file)
-        if match:
+        file_match = file_pattern.search(file)
+        if file_match:
             analyzer = RolloutAnalyzer(file)
             analyzer.print_analysis()
             analyzer.plot_training_curves()
-            loaded_stats.append(
+            tag_match = tag_pattern.search(file_match.group("tag"))
+            loaded_stats[tag_match.group("ident")].append(
                 {
                     **analyzer.summary_stats["overall"],
-                    "pe": float(match.group("pe")),
-                    "pr": float(match.group("pr")),
-                    "tag": match.group("tag"),
+                    "pe": float(file_match.group("pe")),
+                    "pr": float(file_match.group("pr")),
+                    "origin": tag_match.group("origin"),
+                    "dest": tag_match.group("dest"),
                 }
             )
 
-    tagged_statistics = {}
+    tagged_statistics: dict[str, dict[str, dict[str, list[float]]]] = {}
     for tag in tags:
         tag_stats = [s for s in loaded_stats if s["tag"] == tag]
-        tagged_statistics[tag] = {  # p1, p2, r1, r2
+        tagged_statistics[tag] = {  # t1, t2, r1, r2
             "p_empty": {
                 "p": [s["pe"] for s in tag_stats if s["pr"] == 0],
                 "mean_sr": [s["mean_sr"] for s in tag_stats if s["pr"] == 0],
@@ -539,11 +563,11 @@ def entry_point():
 
         plot_stats_vs_p(tagged_statistics, tag, save_path + f"/{tag}", nt)
 
-    plot_stats_vs_epoch_concat(loaded_stats, "p1", "p2", "r1", save_path + "/r1", nt)
+    plot_stats_vs_epoch_concat(loaded_stats, "t1", "t2", "r12", save_path + "/r12", nt)
 
-    plot_stats_vs_epoch_concat(loaded_stats, "p2", "p1", "r2", save_path + "/r2", nt)
+    plot_stats_vs_epoch_concat(loaded_stats, "t2", "t1", "r21", save_path + "/r21", nt)
 
-    plot_stats_vs_epoch_concat(loaded_stats, "p1", "p3", "r3", save_path + "/r3", nt)
+    plot_stats_vs_epoch_concat(loaded_stats, "t1", "t3", "r13", save_path + "/r13", nt)
 
 
 if __name__ == "__main__":

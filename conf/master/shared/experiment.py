@@ -25,13 +25,15 @@ class Exp1Config(ExperimentConfig):
         2: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Minimal},
         3: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Normal},
     }
-    p_max: float = 1.0
-    p_min: float = 0.0
-    p_step: float = 0.1
-    pe: float = -1.0  # Negative means no specific
-    pr: float = -1.0  # Negative means no specific
+    p_max: int = 100
+    p_min: int = 0
+    p_step: int = 10
+    pe_all: bool = False  # If true ignore pe and pr and do all combinations
+    pr_all: bool = False
+    pe: float = 0.0
+    pr: float = 0.0
     workers: int = 4
-    verbose: bool = True
+    verbose: bool = False
     agent: AgentConfig = AgentConfig()
     env: MasterEnvConfig = MasterEnvConfig(
         calvin_config=calvin_env_config,

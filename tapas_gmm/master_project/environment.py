@@ -43,6 +43,7 @@ class MasterEnv:
         config: MasterEnvConfig,
         states: list[State],
         tasks: list[Task],
+        max_steps: int,
     ):
         self.config = config
         self.states = states
@@ -54,8 +55,6 @@ class MasterEnv:
         self.eval_surfaces: dict[str, torch.Tensor] = self.make_eval_surfaces(
             self.env.surfaces, 0.1
         )
-        print(f"Spawn Surfaces: {self.spawn_surfaces}")
-        print(f"Eval Surfaces: {self.eval_surfaces}")
 
         self.last_gripper_action = [1.0]  # open
         self.max_steps, self.steps_left = max_steps  # Cached property
@@ -101,15 +100,6 @@ class MasterEnv:
         ]
 
         return padded_surface
-
-    @cached_property
-    def max_steps(self) -> int:
-        "Every Step is one task, so the maximum steps are the number of tasks. (Not that easy but for this environment it works)"
-        return int(
-            len(self.tasks) * self.config.p_empty
-            + len(self.tasks) * self.config.p_rand
-            + len(self.tasks)
-        )
 
     def reset(self, task: Task = None) -> tuple[MasterObservation, MasterObservation]:
 

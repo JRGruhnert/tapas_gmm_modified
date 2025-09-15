@@ -22,7 +22,6 @@ class AgentConfig:
     saving_freq: int = 5  # Saving frequence of trained model
     saving_path: str = "results/"
 
-    eval_mode: bool = False
     save_stats: bool = True
     batch_size: int = 2048
     mini_batch_size: int = 64  # 64 # How many steps to use in each mini-batch
@@ -83,7 +82,12 @@ class MasterAgent:
         if not os.path.exists(self.log_path):
             os.makedirs(self.log_path)
 
-    def act(self, obs: MasterObservation, goal: MasterObservation) -> Task:
+    def act(
+        self,
+        obs: MasterObservation,
+        goal: MasterObservation,
+        eval: bool = False,
+    ) -> Task:
         if self.waiting_feedback:
             raise UserWarning(
                 "The agent hasn't recieved any feedback of previous action yet. "
@@ -91,9 +95,7 @@ class MasterAgent:
             )
 
         with torch.no_grad():
-            action, action_logprob, state_val = self.policy_old.act(
-                obs, goal, self.config.eval_mode
-            )
+            action, action_logprob, state_val = self.policy_old.act(obs, goal, eval)
 
         self.buffer.obs.append(obs)
         self.buffer.goal.append(goal)
@@ -143,13 +145,16 @@ class MasterAgent:
             returns, dtype=torch.float32
         )
 
+    def save(self):
+        self.buffer.save(self.log_path, self.current_epoch)
+
     def learn(self, verbose: bool = False) -> bool:
         assert self.buffer.health(), "Rollout buffer not in sync"
         assert len(self.buffer.obs) == self.config.batch_size, "Batch size mismatch"
 
         # Saves batch values
         if self.config.save_stats:
-            self.buffer.save(self.log_path, self.current_epoch)
+            self.save()
 
         total_reward, episode_length, success_rate = self.buffer.stats()
         if verbose:
