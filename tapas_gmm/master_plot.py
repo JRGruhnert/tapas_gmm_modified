@@ -132,14 +132,14 @@ class RolloutAnalyzer:
         total_timesteps = 0
         total_episodes = 0
 
-        for epoch, batch_data in batch_data.items():
-            batch_stats = self.compute_batch_stats(batch_data)
+        for epoch in sorted(batch_data.keys()):
+            batch_stats = self.compute_batch_stats(batch_data[epoch])
             batch_summaries[epoch] = batch_stats
 
             # Collect data for overall stats
-            rewards = batch_data["rewards"]
-            terminals = batch_data["terminals"]
-            values = batch_data["values"]
+            rewards = batch_data[epoch]["rewards"]
+            terminals = batch_data[epoch]["terminals"]
+            values = batch_data[epoch]["values"]
 
             # Extract episode rewards for this batch
             current_episode_reward = 0
@@ -179,6 +179,18 @@ class RolloutAnalyzer:
                 np.mean(all_episode_lengths) if all_episode_lengths else 0.0
             ),
             "max_sr": (np.amax(all_success_rates) if all_success_rates else 0.0),
+            "sr_until_max": (
+                all_success_rates[: int(np.argmax(all_success_rates)) + 1]
+                if all_success_rates
+                else []
+            ),
+            "sr_until_90": (
+                all_success_rates[
+                    : int(np.argmax(np.array(all_success_rates) >= 0.9)) + 1
+                ]
+                if any(np.array(all_success_rates) >= 0.9)
+                else []
+            ),
         }
 
         self.summary_stats = {
@@ -288,6 +300,7 @@ def plot_stats_vs_epoch(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag: str,
     save_path: str,
+    nt: str,
 ):
     for name, rows in data[tag].items():
         plt.figure(figsize=(8, 5))
@@ -299,102 +312,76 @@ def plot_stats_vs_epoch(
                     y,
                     label=label,
                 )
-        plt.xlabel(f"{name}")
-        plt.ylabel("Success Rate")
-        plt.title(f"Success Rate vs {name}")
+        plt.xlabel("p")
+        plt.ylabel("%")
+        plt.title(f"{nt} Success Rate vs {name}")
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plot_path = os.path.join(save_path, f"{tag}_sr_vs_{name}.png")
+        plot_path = os.path.join(save_path, f"{nt}_{tag}_sr_vs_{name}.png")
         plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def plot_stats_vs_epoch_concat(
     data: dict[str, dict[str, dict[str, list[float]]]],
-    tag1: str,
-    tag2: str,
+    ptaga: str,
+    ptagb: str,
+    rtagb: str,
     save_path: str,
+    nt: str,
 ):
-    for name, rows in data[tag1].items():
-        plt.figure(figsize=(8, 5))
-        x = rows["p"]
-        for label, y in rows.items():
-            plt.scatter(
-                x,
-                y,
-                label=label,
-            )
-        plt.xlabel(f"{name}")
-        plt.ylabel("Success Rate")
-        plt.title(f"Success Rate vs {name}")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        plt.savefig(f"{tag1}_sr_vs_{name}.png", dpi=300)
-
-        # Plot retrain r1 vs p1
-        # r1
-        # r2
-        rs = ["r1", "r2"]
-        for r in rs:
-            r_stats = [s for s in stats if s["tag"] == r]
-
-            for r_s in r_stats:
-                p1_s = next(
-                    (
-                        p
-                        for p in p1_stats
-                        if p["pe"] == r_s["pe"] and p["pr"] == r_s["pr"]
-                    ),
-                    None,
-                )
-                if not p1_s:
-                    print(f"Did not find matching p1_stats for {r}_stats: {r_s}")
-                    continue
-
-                plot_retrain(
-                    list(range(p1_s["total_batches"])),
-                    list(
-                        range(
-                            p1_s["total_batches"],
-                            p1_s["total_batches"] + r_s["total_batches"],
-                        )
-                    ),
-                    p1_s["max_sr"],
-                    r_s["max_sr"],
-                    f"{r}_pe_{r_s['pe']}_pr_{r_s['pr']}_{r}",
-                    show=True,
-                )
-        r_stats = [s for s in stats if s["tag"] == "r2"]
-        r_stats = [s for s in stats if s["tag"] == "r1"]
-
-        for r_s in r_stats:
-            p1_s = next(
-                (p for p in p1_stats if p["pe"] == r_s["pe"] and p["pr"] == r_s["pr"]),
-                None,
-            )
-            if not p1_s:
-                print(f"Did not find matching p1_stats for r1_stats: {r_s}")
-
-            plot_retrain(
-                list(range(p1_s["total_batches"])),
-                list(
-                    range(
-                        p1_s["total_batches"],
-                        p1_s["total_batches"] + r_s["total_batches"],
-                    )
-                ),
-                p1_s["max_sr"],
-                r_s["max_sr"],
-                f"r1_pe_{r_s['pe']}_pr_{r_s['pr']}_r1",
-                show=True,
-            )
+    plt.figure(figsize=(8, 5))
+    clean_ptaga = data[find_index(data, 0.0, 0.0, ptaga)]
+    clean_ptagb = data[find_index(data, 0.0, 0.0, ptagb)]
+    clean_rtagb = data[find_index(data, 0.0, 0.0, rtagb)]
+    plt.scatter(
+        range(len(clean_ptaga["sr_until_max"])),
+        clean_ptaga["sr_until_max"],
+        label=ptaga,
+    )
+    a = plt.scatter(
+        range(
+            len(clean_ptaga["sr_until_max"]),
+            len(clean_ptaga["sr_until_max"]) + len(clean_ptagb["sr_until_max"]),
+        ),
+        clean_ptagb["sr_until_max"],
+        label=ptagb,
+    )
+    b = plt.scatter(
+        range(
+            len(clean_ptaga["sr_until_max"]),
+            len(clean_ptaga["sr_until_max"]) + len(clean_rtagb["sr_until_max"]),
+        ),
+        clean_rtagb["sr_until_max"],
+        label=rtagb,
+    )
+    # plt.axvline(
+    #    x=len(clean_ptagb["sr_until_90"]) + len(clean_ptaga["sr_until_max"]),
+    #    color=a.get_facecolor()[0],
+    #    linestyle=":",
+    #    label=f"Reach 90% ({len(clean_ptagb['sr_until_90'])})",
+    # )
+    # plt.axvline(
+    #    x=len(clean_rtagb["sr_until_90"]) + len(clean_ptaga["sr_until_max"]),
+    #    color=b.get_facecolor()[0],
+    #    linestyle=":",
+    #    label=f"Reach 90% ({len(clean_rtagb['sr_until_90'])})",
+    # )
+    plt.xlabel("Epoch")
+    plt.ylabel("SR %")
+    plt.title(f"{nt} Retraining from {ptaga} to {ptagb}")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plot_path = os.path.join(save_path, f"re_{nt}_{ptaga}_to_{ptagb}.png")
+    plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
 def plot_stats_vs_p(
     data: dict[str, dict[str, dict[str, list[float]]]],
     tag: str,
     save_path: str,
+    nt: str,
 ):
     # Plot max success rate vs all p
     plt.figure(figsize=(8, 5))
@@ -410,11 +397,11 @@ def plot_stats_vs_p(
                 )
     plt.xlabel("p")
     plt.ylabel("Success Rate")
-    plt.title("Success Rate vs p")
+    plt.title(f"{nt} Success Rate vs p")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plot_path = os.path.join(save_path, f"{tag}_sr_vs_p.png")
+    plot_path = os.path.join(save_path, f"{nt}_{tag}_sr_vs_p.png")
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
@@ -483,27 +470,43 @@ def plot_retrain(
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
 
 
+def find_index(loaded_stats, pe_val: float, pr_val: float, tag_val: str):
+    for i, d in enumerate(loaded_stats):
+        if d["pe"] == pe_val and d["pr"] == pr_val and d["tag"] == tag_val:
+            return i
+    return -1  # Not found
+
+
 def entry_point():
     from tapas_gmm.utils.argparse import parse_and_build_config
 
     _, dict_config = parse_and_build_config(data_load=False, need_task=False)
 
-    show_plots = False
-    tags = ["p1", "p2", "r1", "r2"]
-    p_tags = ["p1", "p2"]
-    r_tags = ["r1", "r2"]
+    save_path = f"results/{dict_config.nt.value}"
+    nt = dict_config.nt.value
+    p_tags = ["p1", "p2", "p3"]
+    r_tags = ["r1", "r2", "r3"]
+    tags = p_tags + r_tags
+    # Create directories if they don't exist
+    for tag in tags:
+        tag_path = save_path + f"/{tag}"
+        os.makedirs(tag_path, exist_ok=True)
 
-    pattern = re.compile(r"(?P<tag>.+?)_pe_(?P<pe>[0-9.]+)_pr_(?P<pr>[0-9.]+)")
-    files = glob.glob(f"results/{dict_config.nt.value}/*", recursive=True)
+    tags_pattern = "|".join(tags)
+    pattern = re.compile(
+        rf"(?P<tag>{tags_pattern})_pe_(?P<pe>[0-9.]+)_pr_(?P<pr>[0-9.]+)"
+    )
 
-    stats = []
+    files = glob.glob(f"{save_path}/*", recursive=True)
+
+    loaded_stats = []
     for file in files:
         match = pattern.search(file)
         if match:
             analyzer = RolloutAnalyzer(file)
             analyzer.print_analysis()
             analyzer.plot_training_curves()
-            stats.append(
+            loaded_stats.append(
                 {
                     **analyzer.summary_stats["overall"],
                     "pe": float(match.group("pe")),
@@ -512,10 +515,10 @@ def entry_point():
                 }
             )
 
-    plot_dict = {}
+    tagged_statistics = {}
     for tag in tags:
-        tag_stats = [s for s in stats if s["tag"] == tag]
-        plot_dict[tag] = {  # p1, p2, r1, r2
+        tag_stats = [s for s in loaded_stats if s["tag"] == tag]
+        tagged_statistics[tag] = {  # p1, p2, r1, r2
             "p_empty": {
                 "p": [s["pe"] for s in tag_stats if s["pr"] == 0],
                 "mean_sr": [s["mean_sr"] for s in tag_stats if s["pr"] == 0],
@@ -532,15 +535,15 @@ def entry_point():
                 "max_sr": [s["max_sr"] for s in tag_stats if s["pe"] == s["pr"]],
             },
         }
-        plot_stats_vs_epoch(plot_dict, tag)
+        plot_stats_vs_epoch(tagged_statistics, tag, save_path + f"/{tag}", nt)
 
-        plot_stats_vs_p(plot_dict, tag)
+        plot_stats_vs_p(tagged_statistics, tag, save_path + f"/{tag}", nt)
 
-    plot_stats_vs_epoch_concat(plot_dict, "p1", "p2", "r1")
+    plot_stats_vs_epoch_concat(loaded_stats, "p1", "p2", "r1", save_path + "/r1", nt)
 
-    plot_stats_vs_epoch_concat(plot_dict, "p2", "p1", "r2")
+    plot_stats_vs_epoch_concat(loaded_stats, "p2", "p1", "r2", save_path + "/r2", nt)
 
-    plot_stats_vs_epoch_concat(plot_dict, "p1", "p3", "r3")
+    plot_stats_vs_epoch_concat(loaded_stats, "p1", "p3", "r3", save_path + "/r3", nt)
 
 
 if __name__ == "__main__":
