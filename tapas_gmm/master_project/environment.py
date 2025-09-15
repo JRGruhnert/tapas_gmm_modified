@@ -57,7 +57,7 @@ class MasterEnv:
         )
 
         self.last_gripper_action = [1.0]  # open
-        self.max_steps, self.steps_left = max_steps  # Cached property
+        self.max_steps, self.steps_left = max_steps, max_steps  # Cached property
         self.terminal = False
         self.task: Task = None
 

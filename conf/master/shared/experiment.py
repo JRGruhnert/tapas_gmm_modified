@@ -22,8 +22,8 @@ class Exp1Config(ExperimentConfig):
     cross_t = [(1, 1), (1, 2), (1, 3), (2, 1), (2, 2), (2, 3), (3, 1), (3, 2), (3, 3)]
     t_spaces_mapping = {
         1: {"state_space": StateSpace.Minimal, "task_space": TaskSpace.Minimal},
-        2: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Minimal},
-        3: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Normal},
+        2: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Normal},
+        3: {"state_space": StateSpace.Normal, "task_space": TaskSpace.Minimal},
     }
     p_max: int = 100
     p_min: int = 0

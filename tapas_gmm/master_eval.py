@@ -73,40 +73,37 @@ def entry_point():
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE
     )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=config.workers) as executor:
-        # This will submit tasks as workers become free
-        futures = []
-        # If negative make all
-        all_p = [
-            v for v in range(config.p_min, config.p_max + config.p_step, config.p_step)
-        ]
-        pe_values = all_p if config.pe < 0 else [config.pe]
-        for pe in pe_values:
-            pr_values = all_p if config.pr < 0 else [config.pr]
-            for pr in pr_values:
-                if pe + pr > 100:
-                    break  # No need to continue, pr only gets larger
+    # This will submit tasks as workers become free
+    configs = []
+    # If negative make all
+    all_p = [
+        v for v in range(config.p_min, config.p_max + config.p_step, config.p_step)
+    ]
+    pe_values = all_p if config.pe < 0 else [config.pe]
+    for pe in pe_values:
+        pr_values = all_p if config.pr < 0 else [config.pr]
+        for pr in pr_values:
+            if pe + pr > 100:
+                break  # No need to continue, pr only gets larger
 
-                config.pe = float(pe / 100)
-                config.pr = float(pr / 100)
-                for origin, goal in config.cross_t:
-                    suffix = f"_pe_{pe}_pr_{pr}/model_cp_best.pth"
-                    prefix = f"results/{config.nt.value}/t"
-                    print(f"Suffix: {suffix} from {prefix}")
-                    eval_config = EvalConfig(
-                        state_space=config.t_spaces_mapping[origin]["state_space"],
-                        task_space=config.t_spaces_mapping[goal]["task_space"],
-                        checkpoint=f"{prefix}{origin}{goal}{suffix}",
-                        tag=f"e{origin}{goal}",
-                        experiment=config,
-                    )
-                    futures.append(executor.submit(eval_agent, eval_config))
+            config.pe = float(pe / 100)
+            config.pr = float(pr / 100)
+            for origin, goal in config.cross_t:
+                suffix = f"_pe_{pe}_pr_{pr}/model_cp_best.pth"
+                prefix = f"results/{config.nt.value}/t"
+                print(f"Suffix: {suffix} from {prefix}")
+                eval_config = EvalConfig(
+                    state_space=config.t_spaces_mapping[origin]["state_space"],
+                    task_space=config.t_spaces_mapping[goal]["task_space"],
+                    checkpoint=f"{prefix}{origin}{suffix}",
+                    tag=f"e{origin}{goal}",
+                    experiment=config,
+                )
+                configs.append(eval_config)
 
-        total_jobs = len(futures)
-        for i, _ in enumerate(concurrent.futures.as_completed(futures), 1):
-            print(f"Progress: {i}/{total_jobs} Last: pe={pe}, pr={pr}")
-        executor.shutdown(wait=True)  # Wait for all tasks to finish
-        print("All evaluations done.")
+    for i, eval_config in enumerate(configs):
+        eval_agent(eval_config)
+        print(f"Progress: {i}/{len(configs)} Last: pe={pe}, pr={pr}")
 
 
 if __name__ == "__main__":
