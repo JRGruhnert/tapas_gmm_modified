@@ -337,33 +337,29 @@ def plot_sr_vs_epoch_r(
     # ndata: t r e
     # idata: pe pr tag origin dest sr_until_max sr_until_90 sr_until_95 max_sr mean_sr
     # Define all origin-destination pairs
+
     pairs = [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]
-
-    plt.figure(figsize=(10, 6))
-    colors = ["blue", "green", "orange", "purple", "red", "cyan"]
-
     for nt, n_data in data.items():
         for idx, (origin, dest) in enumerate(pairs):
             ident = "t"
             tag = f"{ident}{origin}{dest}"
             i_data = n_data.get(ident, {})
             i_data = [v for v in i_data.items() if v.get("tag") == tag and v.get("pe") == 0.0 and v.get("pr") == 0.0]
+            i_data.sort(key=lambda x: x["batch"])
             # Convert to dict of lists
             i_data = {key: [d[key] for d in i_data] for key in i_data[0]}
 
-            sr_until_max = n_data[tag].get("sr_until_max", [])
-        if not sr_until_max:
-            continue
-        start = sum(len(n_data[f"{ident}{o}{d}"].get("sr_until_max", [])) for o, d in pairs[:idx])
-        end = start + len(sr_until_max)
-        plt.scatter(
-            range(start, end),
-            sr_until_max,
-            label=f"{tag}",
-            color=colors[idx % len(colors)],
-        )
+            sr_until_max = i_data.get("sr_until_max", [])
+            start = sum(len(n_data[f"{ident}{o}{d}"].get("sr_until_max", [])) for o, d in pairs[:idx])
+            end = start + len(sr_until_max)
+                    plt.figure(figsize=(8, 5))
+            plt.scatter(
+                range(start, end),
+                sr_until_max,
+                label=f"{tag}",
+            )
 
-    # Add horizontal threshold lines
+            # Add horizontal threshold lines
     for y, color, label in [(0.9, "red", "90% Threshold"), (0.95, "orange", "95% Threshold")]:
         plt.axhline(y=y, color=color, linestyle="--", label=label)
 
