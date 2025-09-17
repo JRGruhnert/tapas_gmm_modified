@@ -11,6 +11,9 @@ from tapas_gmm.master_project.observation import MasterObservation
 from tapas_gmm.master_project.networks.base import ActorCriticBase
 from tapas_gmm.master_project.state import State
 from tapas_gmm.master_project.task import Task
+from ptflops import get_model_complexity_info
+from torchinfo import summary
+from torch_geometric.data import Batch
 
 
 @dataclass
@@ -66,6 +69,15 @@ class MasterAgent:
             lr=self.config.lr_actor,
         )
 
+        param_count = sum(p.numel() for p in self.policy_new.parameters())
+        print(f"Total {self.nt.value} parameters: {param_count}")
+        if self.nt is NetworkType.GNN_V4:
+            dummy_batch = Batch.from_data_list([obs, dummy_graph2])
+            summary(self.policy_old, input_data=(dummy_batch, goal))
+        else:
+            dummy_obs = torch.zeros(batch_size, obs_dim)
+            dummy_goal = torch.zeros(batch_size, goal_dim)
+            summary(self.policy_old, input_data=(dummy_obs, dummy_goal))
         ### Internal flags and counter
         self.waiting_feedback: bool = False
         self.current_epoch: int = 0

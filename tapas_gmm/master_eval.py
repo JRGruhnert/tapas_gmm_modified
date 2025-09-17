@@ -89,6 +89,8 @@ def entry_point():
             config.pe = float(pe / 100)
             config.pr = float(pr / 100)
             for origin, goal in config.cross_t:
+                origin = 2
+                goal = 2
                 suffix = f"_pe_{pe}_pr_{pr}/model_cp_best.pth"
                 prefix = f"results/{config.nt.value}/t"
                 print(f"Suffix: {suffix} from {prefix}")
