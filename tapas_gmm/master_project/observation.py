@@ -1,5 +1,5 @@
 import torch
-from calvin_env.envs.observation import CalvinObservation
+from calvin_env.envs.observation import CalvinEnvObservation
 
 
 class MasterObservation:
@@ -7,7 +7,7 @@ class MasterObservation:
 
     def __init__(
         self,
-        obs: CalvinObservation,
+        obs: CalvinEnvObservation,
     ):
 
         self._states: dict[str, torch.Tensor] = {}

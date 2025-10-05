@@ -23,7 +23,7 @@ from tapas_gmm.utils.keyboard_observer import (
     wait_for_environment_reset,
 )
 from calvin_env.envs.observation import (
-    CalvinObservation,
+    CalvinEnvObservation,
 )
 
 # from tapas_gmm.utils.misc import loop_sleep
@@ -316,7 +316,7 @@ def process_step(
             ee_action = np.concatenate((single_action.ee, single_action.gripper))
             logger.info("EE_Action: {}", ee_action)
         obs, reward, done, env_info = env.step(action=ee_action, info={"done": done})
-        if type(obs) is CalvinObservation:
+        if type(obs) is CalvinEnvObservation:
             print(f"EE Pose: {obs.ee_pose}")
 
         logger.info(f"States: {obs.object_states}")
@@ -348,7 +348,7 @@ def process_step(
         if done:
             break
 
-        if type(obs) is CalvinObservation:
+        if type(obs) is CalvinEnvObservation:
             obs = MasterObservation(obs).tapas_format
         else:
             obs.action = ee_action

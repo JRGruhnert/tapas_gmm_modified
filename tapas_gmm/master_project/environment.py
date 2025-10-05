@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
-from functools import cached_property
 import random
 from loguru import logger
 import numpy as np
 import re
 import torch
 
-from calvin_env.envs.observation import CalvinObservation
+
 from tapas_gmm.env.calvin import Calvin, CalvinConfig
 from tapas_gmm.master_project.state import State
 from tapas_gmm.master_project.task import Task
