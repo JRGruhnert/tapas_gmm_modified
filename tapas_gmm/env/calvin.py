@@ -83,7 +83,7 @@ class Calvin(BaseEnvironment):
     def update_prediction_marker(self, points: list):
         self.env.update_prediction_marker(points)
 
-    def step(self, action: np.ndarray, render: bool, info: dict = None) -> tuple[CalvinObservation, float, bool, dict]:  # type: ignore
+    def step(self, action: np.ndarray, render: bool, info: dict = None) -> tuple[CalvinEnvObservation, float, bool, dict]:  # type: ignore
         """
         Postprocess the action and execute it in the environment.
         Simple wrapper around _step, that provides the kwargs for
