@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from omegaconf import OmegaConf, SCMode
 
-from conf.master.shared import experiment1
+
 from conf.master.shared.experiment import ExperimentConfig
 from tapas_gmm.master_project.dloader import DataLoader
 from tapas_gmm.master_project.state import StateSpace
