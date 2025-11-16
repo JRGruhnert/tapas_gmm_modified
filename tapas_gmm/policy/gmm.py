@@ -221,8 +221,8 @@ class GMMPolicy(Policy):
                 info["done"] = self._last_prediction is None
             else:
                 prediction = self._prediction_batch.step()
-                print("Step prediction batch")
-                print(f"Raw Prediction: {prediction}")
+                #print("Step prediction batch")
+                #print(f"Raw Prediction: {prediction}")
                 info["done"] = False
             action = (
                 self._postprocess_prediction(obs.ee_pose.numpy(), prediction.ee)
@@ -245,7 +245,7 @@ class GMMPolicy(Policy):
             action[-1] = self._binary_gripper_action(action[-1])
 
         info["segment"] = self.model._online_active_segment
-        print(f"Action: {action}")
+        p#rint(f"Action: {action}")
         return action, info
 
     def _get_frame_trans(self, obs):
