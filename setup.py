@@ -50,7 +50,7 @@ calvin_requires = [
 
 setuptools.setup(
     name="tapas_gmm_modified",
-    version=get_version("tapas_gmm/__init__.py"),
+    version=get_version("tapas_gmm_modified/__init__.py"),
     author="Jan Ole von Hartz",
     description="PyTorch implementation of TAPAS GMM",
     long_description=read("README.md"),
@@ -67,16 +67,16 @@ setuptools.setup(
     python_requires=">=3.10",
     entry_points={
         "console_scripts": [
-            "tapas-bc = tapas_gmm.behavior_cloning:entry_point",
-            "tapas-collect-rlbench = tapas_gmm.collect_data_rlbench:entry_point",
-            "tapas-embed = tapas_gmm.embed_trajectories:entry_point",
-            "tapas-kp-encode = tapas_gmm.kp_encode_trajectories:entry_point",
-            "tapas-pretrain = tapas_gmm.pretrain:entry_point",
-            "tapas-collect = tapas_gmm.tapas_collect:entry_point",
-            "tapas-eval = tapas_gmm.tapas_eval:entry_point",
-            "master-train = tapas_gmm.master_train:entry_point",
-            "master-eval = tapas_gmm.master_eval:entry_point",
-            "master-plot = tapas_gmm.master_plot:entry_point",
+            "tapas-bc = tapas_gmm_modifed.behavior_cloning:entry_point",
+            "tapas-collect-rlbench = tapas_gmm_modifed.collect_data_rlbench:entry_point",
+            "tapas-embed = tapas_gmm_modifed.embed_trajectories:entry_point",
+            "tapas-kp-encode = tapas_gmm_modifed.kp_encode_trajectories:entry_point",
+            "tapas-pretrain = tapas_gmm_modifed.pretrain:entry_point",
+            "tapas-collect = tapas_gmm_modifed.tapas_collect:entry_point",
+            "tapas-eval = tapas_gmm_modifed.tapas_eval:entry_point",
+            "master-train = tapas_gmm_modifed.master_train:entry_point",
+            "master-eval = tapas_gmm_modifed.master_eval:entry_point",
+            "master-plot = tapas_gmm_modifed.master_plot:entry_point",
         ]
     },
 )
