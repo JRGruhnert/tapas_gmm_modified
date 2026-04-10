@@ -1,4 +1,4 @@
-from tapas_gmm.master_project.environment import MasterEnvConfig
+from tapas_gmm_modified.master_project.environment import MasterEnvConfig
 from conf.env.calvin.env_collect_conf import calvin_env_config
 
 

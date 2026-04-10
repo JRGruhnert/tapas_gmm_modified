@@ -10,9 +10,9 @@ from loguru import logger
 
 from calvin_env_modified.envs.observation import CalvinEnvObservation
 from calvin_env_modified.envs.calvin_env import get_env_from_cfg, CalvinEnvironment
-from tapas_gmm.env import Environment
-from tapas_gmm.env.environment import BaseEnvironment, BaseEnvironmentConfig
-from tapas_gmm.utils.geometry_np import (
+from tapas_gmm_modified.env import Environment
+from tapas_gmm_modified.env.environment import BaseEnvironment, BaseEnvironmentConfig
+from tapas_gmm_modified.utils.geometry_np import (
     axis_angle_to_quaternion,
     conjugate_quat,
     homogenous_transform_from_rot_shift,

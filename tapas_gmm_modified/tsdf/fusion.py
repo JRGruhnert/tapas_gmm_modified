@@ -13,14 +13,14 @@ from numba import njit, prange
 from skimage import measure
 from tqdm.auto import tqdm
 
-from tapas_gmm.tsdf.filter import cut_volume_with_box, filter_background, filter_gripper
-from tapas_gmm.utils.cuda import FUSION_GPU_MODE, cuda
-from tapas_gmm.utils.geometry_torch import (
+from tapas_gmm_modified.tsdf.filter import cut_volume_with_box, filter_background, filter_gripper
+from tapas_gmm_modified.utils.cuda import FUSION_GPU_MODE, cuda
+from tapas_gmm_modified.utils.geometry_torch import (
     batched_rigid_transform,
     invert_homogenous_transform,
 )
-from tapas_gmm.utils.select_gpu import device
-from tapas_gmm.viz.operations import np_channel_front2back
+from tapas_gmm_modified.utils.select_gpu import device
+from tapas_gmm_modified.viz.operations import np_channel_front2back
 
 if FUSION_GPU_MODE:
     from pycuda.compiler import SourceModule  # type: ignore

@@ -1,9 +1,9 @@
 from conf.master.shared.agent import experiments
 from conf.master.shared.train_env import p1_baseline
-from tapas_gmm.master_project.networks import NetworkType
-from tapas_gmm.master_project.state import StateSpace
-from tapas_gmm.master_project.task import TaskSpace
-from tapas_gmm.master_train import TrainConfig
+from tapas_gmm_modified.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.state import StateSpace
+from tapas_gmm_modified.master_project.task import TaskSpace
+from tapas_gmm_modified.master_train import TrainConfig
 
 
 config = TrainConfig(

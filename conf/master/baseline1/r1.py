@@ -1,9 +1,9 @@
 from conf.master.shared.train_env import re_env_baseline
 from conf.master.shared.agent import experiments
-from tapas_gmm.master_project.networks import NetworkType
-from tapas_gmm.master_project.state import StateSpace
-from tapas_gmm.master_project.task import TaskSpace
-from tapas_gmm.master_retrain import RetrainConfig
+from tapas_gmm_modified.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.state import StateSpace
+from tapas_gmm_modified.master_project.task import TaskSpace
+from tapas_gmm_modified.master_retrain import RetrainConfig
 
 
 config = RetrainConfig(

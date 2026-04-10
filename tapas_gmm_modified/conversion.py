@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from tapas_gmm.utils.observation import (
+from tapas_gmm_modified.utils.observation import (
     SceneObservation,
     SingleCamObservation,
     CameraOrder,

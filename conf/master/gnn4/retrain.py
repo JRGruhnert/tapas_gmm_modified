@@ -1,9 +1,9 @@
 from conf.master.shared.agent import experiments
-from tapas_gmm.master_project.environment import MasterEnvConfig
-from tapas_gmm.master_project.networks import NetworkType
-from tapas_gmm.master_project.state import StateSpace
-from tapas_gmm.master_project.task import TaskSpace
-from tapas_gmm.master_retrain import RetrainConfig
+from tapas_gmm_modified.master_project.environment import MasterEnvConfig
+from tapas_gmm_modified.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.state import StateSpace
+from tapas_gmm_modified.master_project.task import TaskSpace
+from tapas_gmm_modified.master_retrain import RetrainConfig
 from conf.env.calvin.env_eval_conf import calvin_env_config
 
 p_origin: int = 1

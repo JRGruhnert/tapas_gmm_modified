@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from tapas_gmm.master_project.agent import AgentConfig
-from tapas_gmm.master_project.environment import MasterEnvConfig
-from tapas_gmm.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.agent import AgentConfig
+from tapas_gmm_modified.master_project.environment import MasterEnvConfig
+from tapas_gmm_modified.master_project.networks import NetworkType
 from conf.env.calvin.env_eval_conf import calvin_env_config
-from tapas_gmm.master_project.state import StateSpace
-from tapas_gmm.master_project.task import TaskSpace
+from tapas_gmm_modified.master_project.state import StateSpace
+from tapas_gmm_modified.master_project.task import TaskSpace
 
 
 @dataclass

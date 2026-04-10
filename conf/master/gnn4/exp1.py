@@ -1,5 +1,5 @@
 from conf.master.shared.experiment import Exp1Config
-from tapas_gmm.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.networks import NetworkType
 
 
 config = Exp1Config(

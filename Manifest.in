@@ -1,1 +1,1 @@
-recursive-include tapas_gmm/calvin_project/conf *.yaml
+recursive-include tapas_gmm_modified/calvin_project/conf *.yaml

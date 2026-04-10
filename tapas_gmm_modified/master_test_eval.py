@@ -6,14 +6,14 @@ from omegaconf import OmegaConf, SCMode
 import concurrent.futures
 
 from conf.master.shared.experiment import ExperimentConfig
-from tapas_gmm.master_project.agent import MasterAgent
-from tapas_gmm.master_project.buffer import RolloutBuffer
-from tapas_gmm.master_project.dloader import DataLoader
-from tapas_gmm.master_project.networks import NetworkType
-from tapas_gmm.master_project.state import StateSpace
-from tapas_gmm.master_project.task import TaskSpace
-from tapas_gmm.master_project.environment import MasterEnv
-from tapas_gmm.utils.argparse import parse_and_build_config
+from tapas_gmm_modified.master_project.agent import MasterAgent
+from tapas_gmm_modified.master_project.buffer import RolloutBuffer
+from tapas_gmm_modified.master_project.dloader import DataLoader
+from tapas_gmm_modified.master_project.networks import NetworkType
+from tapas_gmm_modified.master_project.state import StateSpace
+from tapas_gmm_modified.master_project.task import TaskSpace
+from tapas_gmm_modified.master_project.environment import MasterEnv
+from tapas_gmm_modified.utils.argparse import parse_and_build_config
 
 
 @dataclass
