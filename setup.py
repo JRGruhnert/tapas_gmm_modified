@@ -44,12 +44,12 @@ rlbench_requires = [
 ]
 
 calvin_requires = [
-    "calvin_env",
+    "calvin_env_modified",
 ]
 
 
 setuptools.setup(
-    name="tapas_gmm",
+    name="tapas_gmm_modified",
     version=get_version("tapas_gmm/__init__.py"),
     author="Jan Ole von Hartz",
     description="PyTorch implementation of TAPAS GMM",
