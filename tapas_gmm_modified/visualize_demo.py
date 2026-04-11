@@ -68,7 +68,7 @@ def main(config):
     cam_obs = first_obs["cameras"][config.camera]
 
     rgb = channel_front2back(cam_obs.rgb)
-    depth = cam_obs.depth
+    depth = cam_obs.d
     extr = cam_obs.extr
 
     ee_pose = first_obs["ee_pose"]
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         },
     )
     args, dict_config = parse_and_build_config(extra_args=extra_args)
-    #dict_config = complete_config(args, dict_config)  # type: ignore
+    # dict_config = complete_config(args, dict_config)  # type: ignore
 
     config = OmegaConf.to_container(
         dict_config, resolve=True, structured_config_mode=SCMode.INSTANTIATE

@@ -84,7 +84,7 @@ class Imitation_Learning_Dataset(Dataset):
         # wrist_obs = SingleCamObservation(
         #     **{
         #         "rgb": self.wrist_camera_image,
-        #         "depth": torch.zeros_like(self.wrist_camera_image),
+        #         "d": torch.zeros_like(self.wrist_camera_image),
         #         "extr": None,
         #         "intr": None,
         #     },
@@ -94,7 +94,7 @@ class Imitation_Learning_Dataset(Dataset):
         # overhead_obs = SingleCamObservation(
         #     **{
         #         "rgb": self.top_camera_image,
-        #         "depth": torch.zeros_like(self.wrist_camera_image),
+        #         "d": torch.zeros_like(self.wrist_camera_image),
         #         "extr": None,
         #         "intr": None,
         #     },

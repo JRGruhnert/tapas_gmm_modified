@@ -22,7 +22,11 @@ from tapas_gmm_modified.utils.cuda import (
     try_empty_cuda_cache,
     try_make_context,
 )
-from tapas_gmm_modified.utils.misc import DataNamingConfig, apply_machine_config, load_scene_data
+from tapas_gmm_modified.utils.misc import (
+    DataNamingConfig,
+    apply_machine_config,
+    load_scene_data,
+)
 from tapas_gmm_modified.utils.random import configure_seeds
 from tapas_gmm_modified.utils.select_gpu import device
 
@@ -74,7 +78,7 @@ def main(config: Config):
 
         # fusion_scene is SingleCamSceneObservation (stacked from all cams)
         rgb = fusion_scene.rgb.numpy()  # type: ignore
-        depth = fusion_scene.depth.numpy()  # type: ignore
+        depth = fusion_scene.d.numpy()  # type: ignore
         extrinsics = fusion_scene.extr.numpy()  # type: ignore
         intrinsics = fusion_scene.intr.numpy()  # type: ignore
         n_imgs = len(rgb)

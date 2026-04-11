@@ -918,7 +918,7 @@ class SceneDataset(Dataset):
 
         # TODO: this is ugly. Make it nicer.
         cam_args = (get_rgb, get_int, get_ext, get_depth)
-        cam_attr = ("rgb", "intr", "extr", "depth")
+        cam_attr = ("rgb", "intr", "extr", "d")
         for arg, attr in zip(cam_args, cam_attr):
             if arg:
                 file_suffix = ALL_CAMERA_ATTRIBUTES[attr]

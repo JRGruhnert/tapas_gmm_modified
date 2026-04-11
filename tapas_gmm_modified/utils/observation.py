@@ -55,7 +55,7 @@ class SampleTypes(Enum):
 RAW_CAMERA_ATTRIBUTES = MappingProxyType(
     {
         "rgb": "rgb",
-        "depth": "d",
+        "d": "d",
         "extr": "ext",
         "intr": "int",
     }

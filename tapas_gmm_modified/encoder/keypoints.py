@@ -25,9 +25,18 @@ from tapas_gmm_modified.encoder.representation_learner import (
     RepresentationLearner,
     RepresentationLearnerConfig,
 )
-from tapas_gmm_modified.filter.discrete_filter import DiscreteFilter, DiscreteFilterConfig
-from tapas_gmm_modified.filter.particle_filter import ParticleFilter, ParticleFilterConfig
-from tapas_gmm_modified.utils.geometry_torch import append_depth_to_uv, hard_pixels_to_3D_world
+from tapas_gmm_modified.filter.discrete_filter import (
+    DiscreteFilter,
+    DiscreteFilterConfig,
+)
+from tapas_gmm_modified.filter.particle_filter import (
+    ParticleFilter,
+    ParticleFilterConfig,
+)
+from tapas_gmm_modified.utils.geometry_torch import (
+    append_depth_to_uv,
+    hard_pixels_to_3D_world,
+)
 
 # from tapas_gmm_modified.utils.debug import nan_hook, summarize_tensor
 from tapas_gmm_modified.utils.logging import indent_func_log, log_constructor
@@ -500,7 +509,7 @@ class KeypointsPredictor(RepresentationLearner):
         camera_obs = batch.camera_obs
 
         rgb = tuple(o.rgb for o in camera_obs)
-        depth = tuple(o.depth for o in camera_obs)
+        depth = tuple(o.d for o in camera_obs)
         extr = tuple(o.extr for o in camera_obs)
         intr = tuple(o.intr for o in camera_obs)
 
@@ -849,7 +858,9 @@ class KeypointsPredictor(RepresentationLearner):
         )
 
         if ref_selection is ReferenceSelectionTypes.MANUAL and preview_frames:
-            from tapas_gmm_modified.viz.keypoint_selector import ManualKeypointSelectorConfig
+            from tapas_gmm_modified.viz.keypoint_selector import (
+                ManualKeypointSelectorConfig,
+            )
 
             assert type(ref_selector_config) is ManualKeypointSelectorConfig
 
@@ -949,7 +960,7 @@ class KeypointsPredictor(RepresentationLearner):
                 )
             elif self.keypoint_dimension == 3:
                 depth_map_with_points_overlay_uv_list(
-                    ref_obs.depth.cpu().numpy(),
+                    ref_obs.d.cpu().numpy(),
                     (self.ref_pixels_uv[0].numpy(), self.ref_pixels_uv[1].numpy()),
                     mask=(
                         ref_obs.mask.cpu().numpy() if ref_obs.mask is not None else None

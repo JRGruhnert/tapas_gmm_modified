@@ -17,7 +17,11 @@ from torch.utils.data.dataloader import default_collate
 import tapas_gmm_modified.dense_correspondence.correspondence_augmentation as correspondence_augmentation  # noqa 501
 import tapas_gmm_modified.dense_correspondence.correspondence_finder as correspondence_finder
 from tapas_gmm_modified.utils.misc import configure_class_instance
-from tapas_gmm_modified.utils.observation import MaskTypes, SampleTypes, SingleCamObservation
+from tapas_gmm_modified.utils.observation import (
+    MaskTypes,
+    SampleTypes,
+    SingleCamObservation,
+)
 from tapas_gmm_modified.viz.correspondence_plotter import cross_debug_plot, debug_plots
 from tapas_gmm_modified.viz.operations import (
     channel_front2back,
@@ -666,9 +670,9 @@ class DenseCorrespondenceDataset(Dataset):
 
         # find correspondences
         uv_a, uv_b = correspondence_finder.batch_find_pixel_correspondences(
-            obs_a.depth,
+            obs_a.d,
             obs_a.extr,
-            obs_b.depth,
+            obs_b.d,
             obs_b.extr,
             img_a_mask=correspondence_mask,
             num_attempts=self.dc_config.num_matching_attempts,
@@ -683,8 +687,8 @@ class DenseCorrespondenceDataset(Dataset):
             return (
                 obs_a.rgb,
                 obs_b.rgb,
-                obs_a.depth,
-                obs_b.depth,
+                obs_a.d,
+                obs_b.d,
                 obs_a.mask,
                 obs_b.mask,
                 uv_a,
@@ -1246,10 +1250,10 @@ class DenseCorrespondenceDataset(Dataset):
     def _image_augment(self, obs_a, obs_b, uv_a, uv_b):
         image_a_rgb = obs_a.rgb
         image_a_mask = obs_a.mask
-        image_a_depth = obs_a.depth
+        image_a_depth = obs_a.d
         image_b_rgb = obs_b.rgb
         image_b_mask = obs_b.mask
-        image_b_depth = obs_b.depth
+        image_b_depth = obs_b.d
 
         if self.dc_config.domain_randomize:
             image_a_rgb = (

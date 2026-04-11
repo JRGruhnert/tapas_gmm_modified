@@ -27,7 +27,10 @@ from tapas_gmm_modified.utils.observation import SampleTypes
 from tapas_gmm_modified.utils.select_gpu import device
 from tapas_gmm_modified.utils.torch import eye_like
 from tapas_gmm_modified.viz.image_single import image_with_points_overlay_uv_list
-from tapas_gmm_modified.viz.surface import depth_map_with_points_overlay_uv_list, scatter3d
+from tapas_gmm_modified.viz.surface import (
+    depth_map_with_points_overlay_uv_list,
+    scatter3d,
+)
 
 # import viz.keypoint_selector
 
@@ -123,7 +126,7 @@ class GTKeypointsPredictor(keypoints.KeypointsPredictor):
     def encode(self, batch):
         camera_obs = batch.camera_obs
 
-        depth = camera_obs[0].depth
+        depth = camera_obs[0].d
         extrinsics = camera_obs[0].extr
         intrinsics = camera_obs[0].intr
         object_poses = batch.object_poses
@@ -290,7 +293,7 @@ class GTKeypointsPredictor(keypoints.KeypointsPredictor):
             cam=cam, img_idx=img_idx, traj_idx=traj_idx
         )
 
-        self.ref_depth = ref_obs.depth.to(device)
+        self.ref_depth = ref_obs.d.to(device)
         self.ref_object_poses = ref_obs.object_poses.to(device)
         # self._buffers['ref_object_poses'] = self.ref_object_poses  # HACK
         self.ref_int = ref_obs.intr.to(device)
@@ -319,7 +322,9 @@ class GTKeypointsPredictor(keypoints.KeypointsPredictor):
             )
 
         if ref_selection is ReferenceSelectionTypes.MANUAL:
-            from tapas_gmm_modified.viz.keypoint_selector import ManualKeypointSelectorConfig
+            from tapas_gmm_modified.viz.keypoint_selector import (
+                ManualKeypointSelectorConfig,
+            )
 
             assert type(ref_selector_config) is ManualKeypointSelectorConfig
 
@@ -390,7 +395,7 @@ class GTKeypointsPredictor(keypoints.KeypointsPredictor):
                 # plt.show()
             elif self.keypoint_dimension == 3:
                 depth_map_with_points_overlay_uv_list(
-                    ref_obs.depth.cpu().numpy(),
+                    ref_obs.d.cpu().numpy(),
                     (self.ref_pixels_uv[0].numpy(), self.ref_pixels_uv[1].numpy()),
                     mask=ref_obs.mask.cpu().numpy(),
                     object_labels=object_labels,
