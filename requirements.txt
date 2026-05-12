@@ -49,7 +49,7 @@ lovely_tensors
 
 
 ipympl
-torch==2.1.0
+torch==2.4.0
 
 
 tensordict>=0.2.0
